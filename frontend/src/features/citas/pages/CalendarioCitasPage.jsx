@@ -1,416 +1,288 @@
 // src/features/citas/pages/CalendarioCitasPage.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import Swal from 'sweetalert2';
-import withReactContent from 'sweetalert2-react-content';
-import Calendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css';
 import moment from 'moment';
 import 'moment/locale/es';
-import Select from 'react-select';
+import { useLocation, useNavigate } from 'react-router-dom';
 
-// ✅ IMPORTACIONES ACTUALIZADAS
-import { CitasTable, CitaDetalleModal } from '../components';
+import NavbarAdmin from '../../../shared/components/layout/Navbar';
+import { CitaFormModal, CitaDetalleModal, CitasTable } from '../components';
+import ConfirmModal from '../../../shared/components/common/ConfirmModal';
+import ValidationModal from '../../../shared/components/common/ValidationModal';
+
 import {
-  fetchCitas,
-  crearCita,
-  actualizarCita, // ✅ Importado
-  deleteCitaById,
-  fetchNovedadesAgendables,
-  fetchDiasDisponibles,
-  fetchHorasDisponibles,
-  fetchEmpleadosPorNovedad,
-  fetchServiciosDisponibles,
-  buscarClientes,
-  fetchEstadosCita, // ✅ Importado
+  fetchCitasAgendadas,
+  saveCita,
+  deleteCitaById as serviceDeleteCitaById,
+  cambiarEstadoCita
 } from '../services/citasService';
 import '../css/Citas.css';
 
 moment.locale('es');
 
-const MySwal = withReactContent(Swal);
-
-function CalendarioCitasPage() {
-  // --- Estados de UI y Modales ---
-  const [viewMode, setViewMode] = useState('lista'); // 'lista' o 'agendar'
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-
-  // --- Estados de Datos ---
-  const [citas, setCitas] = useState([]);
-  const [novedades, setNovedades] =useState([]);
-  const [diasDisponibles, setDiasDisponibles] = useState([]);
-  const [horasDisponibles, setHorasDisponibles] = useState([]);
-  const [empleados, setEmpleados] = useState([]);
-  const [servicios, setServicios] = useState([]);
-  const [clientes, setClientes] = useState([]);
-  const [estadosCita, setEstadosCita] = useState([]); // ✅ Nuevo estado
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-
-  // --- Estados del Formulario de Agendamiento ---
-  const [selectedNovedad, setSelectedNovedad] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [selectedTime, setSelectedTime] = useState(null);
-  const [selectedEmpleado, setSelectedEmpleado] = useState(null);
-  const [selectedServicios, setSelectedServicios] = useState([]);
-  const [selectedCliente, setSelectedCliente] = useState(null);
-  const [editingCitaId, setEditingCitaId] = useState(null); // ✅ Nuevo estado para modo edición
-
-  // --- Estados para Operaciones ---
-  const [citaParaOperacion, setCitaParaOperacion] = useState(null);
-
-  // --- Carga de Datos ---
-  const cargarDatosPrincipales = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const [citasRes, estadosRes] = await Promise.all([fetchCitas(), fetchEstadosCita()]);
-      const citasAPI = citasRes.data?.data || [];
-      const normalizadas = citasAPI.map(c => ({
-        ...c,
-        id: c.idCita,
-        clienteNombre: c.cliente ? `${c.cliente.nombre} ${c.cliente.apellido || ''}`.trim() : "N/A",
-        empleadoNombre: c.empleado?.nombre || "N/A",
-        serviciosNombres: c.serviciosProgramados?.map(s => s.nombre).join(", ") || "N/A",
-        estadoCita: c.estadoDetalle?.nombreEstado || "Desconocido",
-        estadoCitaId: c.estadoDetalle?.idEstadoCita,
-        start: c.fechaHora,
-        precioTotal: c.serviciosProgramados?.reduce((sum, s) => sum + Number(s.precio || 0), 0),
-      }));
-      setCitas(normalizadas);
-      setEstadosCita(estadosRes.data?.data || []);
-    } catch (error) {
-      MySwal.fire("Error de Carga", "No se pudieron cargar los datos: " + (error.response?.data?.message || error.message), "error");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const cargarDatosAgendamiento = useCallback(() => {
-    fetchNovedadesAgendables()
-      .then(res => setNovedades(res.data?.data || []))
-      .catch(error => {
-        MySwal.fire("Error de Carga", `No se pudieron cargar las novedades para agendar. Motivo: ${error.response?.data?.message || 'Error desconocido'}. Por favor, contacte a soporte.`, "error");
-        setNovedades([]);
-      });
-
-    fetchServiciosDisponibles()
-      .then(res => setServicios(res.data?.data || []))
-      .catch(error => {
-        MySwal.fire("Error de Carga", `No se pudieron cargar los servicios disponibles. Motivo: ${error.response?.data?.message || 'Error desconocido'}.`, "error");
-        setServicios([]);
-      });
-  }, []);
-
-  useEffect(() => {
-    if (viewMode === 'agendar') {
-      cargarDatosAgendamiento();
-    } else {
-      cargarDatosPrincipales();
-    }
-  }, [viewMode, cargarDatosPrincipales, cargarDatosAgendamiento]);
-
-  // --- Lógica de Efectos para el Formulario ---
-  useEffect(() => {
-    if (selectedNovedad && selectedNovedad.value && viewMode === 'agendar') {
-      const anio = moment(currentMonth).year();
-      const mes = moment(currentMonth).month() + 1;
-      if (!editingCitaId) { // No resetees si estás editando
-        setSelectedDate(null);
-        setHorasDisponibles([]);
-      }
-      fetchDiasDisponibles(selectedNovedad.value, anio, mes)
-        .then(res => setDiasDisponibles(Array.isArray(res.data?.data) ? res.data.data.map(d => moment(d).format('YYYY-MM-DD')) : []))
-        .catch(console.error);
-      fetchEmpleadosPorNovedad(selectedNovedad.value)
-        .then(res => setEmpleados(res.data?.data || []))
-        .catch(console.error);
-    }
-  }, [selectedNovedad, currentMonth, viewMode, editingCitaId]);
-
-  // --- Handlers de Interacción del Formulario ---
-  const handleDateChange = (date) => {
-    setSelectedDate(date);
-    setSelectedTime(null);
-    if (selectedNovedad && selectedNovedad.value) {
-      const fechaStr = moment(date).format('YYYY-MM-DD');
-      fetchHorasDisponibles(selectedNovedad.value, fechaStr)
-        .then(res => setHorasDisponibles(res.data?.data || []))
-        .catch(console.error);
-    }
-  };
-  
-  const handleClienteSearch = (term) => {
-    if (term.length > 2) {
-      buscarClientes(term).then(res => setClientes(res.data?.data || [])).catch(console.error);
-    }
-  };
-
-  // --- Lógica de Submisión y Modales ---
-  const handleAgendarSubmit = () => {
-    if (!selectedNovedad || !selectedDate || !selectedTime || !selectedEmpleado || selectedServicios.length === 0 || !selectedCliente) {
-      MySwal.fire('Campos Incompletos', 'Todos los campos son obligatorios.', 'warning');
-      return;
-    }
-    
-    const precioTotal = selectedServicios.reduce((sum, s) => {
-        const priceMatch = s.label.match(/\(\$([\d,]+)\)/);
-        const price = priceMatch ? parseFloat(priceMatch[1].replace(/,/g, '')) : 0;
-        return sum + price;
-    }, 0);
-
-    const citaParaConfirmar = {
-      cliente: selectedCliente,
-      empleado: selectedEmpleado,
-      servicios: selectedServicios,
-      fecha: selectedDate,
-      hora: selectedTime,
-      precioTotal,
-    };
-
-    MySwal.fire({
-      title: 'Confirmar Cita',
-      html: `
-        <p><strong>Cliente:</strong> ${citaParaConfirmar.cliente.label}</p>
-        <p><strong>Empleado:</strong> ${citaParaConfirmar.empleado.label}</p>
-        <p><strong>Fecha:</strong> ${moment(citaParaConfirmar.fecha).format('LL')}</p>
-        <p><strong>Hora:</strong> ${moment(citaParaConfirmar.hora, 'HH:mm:ss').format('hh:mm A')}</p>
-        <p><strong>Servicios:</strong> ${citaParaConfirmar.servicios.map(s => s.label.split('(')[0].trim()).join(', ')}</p>
-        <hr/>
-        <p><strong>Precio Total:</strong> $${citaParaConfirmar.precioTotal.toLocaleString('es-CO')}</p>
-      `,
-      icon: 'info',
-      showCancelButton: true,
-      confirmButtonText: 'Confirmar Agendamiento',
-      cancelButtonText: 'Cancelar'
-    }).then(result => {
-      if (result.isConfirmed) {
-        handleConfirmarAgendamiento();
-      }
-    });
-  };
-
-  const handleConfirmarAgendamiento = async () => {
-    setIsLoading(true);
-    const fechaHoraISO = moment(`${moment(selectedDate).format('YYYY-MM-DD')}T${selectedTime}`).toISOString();
-    
-    const citaPayload = {
-      novedadId: selectedNovedad.value,
-      clienteId: selectedCliente.value,
-      usuarioId: selectedEmpleado.value,
-      servicios: selectedServicios.map(s => s.value),
-      fechaHora: fechaHoraISO,
-      estadoCitaId: 1,
-    };
-
-    try {
-      if (editingCitaId) {
-        await actualizarCita(editingCitaId, citaPayload);
-        MySwal.fire('¡Éxito!', '¡Cita actualizada exitosamente!', 'success');
-      } else {
-        await crearCita(citaPayload);
-        MySwal.fire('¡Éxito!', '¡Cita agendada exitosamente!', 'success');
-      }
-      resetFormulario();
-      setViewMode('lista');
-    } catch (error) {
-      MySwal.fire(editingCitaId ? 'Error al Actualizar' : 'Error al Agendar', error.response?.data?.message || 'Ocurrió un error.', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // --- Handlers de Acciones de la Tabla ---
-  const handleOpenDeleteConfirm = (citaId) => {
-    const cita = citas.find(c => c.id === citaId);
-    MySwal.fire({
-      title: '¿Estás seguro?',
-      text: `Deseas eliminar la cita para "${cita?.clienteNombre}"? Esta acción es irreversible.`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Sí, ¡eliminar!',
-      cancelButtonText: 'Cancelar'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        handleConfirmDeleteCita(citaId);
-      }
-    });
-  };
-  
-  const handleConfirmDeleteCita = async (citaId) => {
-      try {
-        await deleteCitaById(citaId);
-        cargarDatosPrincipales();
-        MySwal.fire('¡Eliminada!', 'La cita ha sido eliminada.', 'success');
-      } catch (error) {
-        MySwal.fire("Error al Eliminar", error.response?.data?.message || "No se pudo eliminar la cita.", "error");
-      }
-  };
-
-  const handleStatusChange = async (citaId, newStatusId) => {
-    setIsLoading(true);
-    try {
-        await actualizarCita(citaId, { estadoCitaId: newStatusId });
-        MySwal.fire({
-            toast: true,
-            position: 'top-end',
-            icon: 'success',
-            title: 'Estado de la cita actualizado.',
-            showConfirmButton: false,
-            timer: 3000,
-            timerProgressBar: true
-        });
-        cargarDatosPrincipales();
-    } catch (error) {
-        MySwal.fire("Error de Actualización", error.response?.data?.message || "No se pudo actualizar el estado.", "error");
-    } finally {
-        setIsLoading(false);
-    }
-  };
-
-  const handleEditCita = (cita) => {
-    resetFormulario();
-    setEditingCitaId(cita.id);
-
-    // Cargar datos de la cita en el formulario
-    const novedad = { value: cita.novedadId, label: cita.novedad?.nombre || 'Novedad no encontrada' };
-    const cliente = { value: cita.cliente.idCliente, label: `${cita.cliente.nombre} ${cita.cliente.apellido || ''}` };
-    const empleado = { value: cita.empleado.id_usuario, label: cita.empleado.nombre };
-    const serviciosSeleccionados = cita.serviciosProgramados.map(s => ({
-        value: s.idServicio,
-        label: `${s.nombre} ($${s.precio})`
-    }));
-
-    setSelectedNovedad(novedad);
-    setSelectedDate(new Date(cita.start));
-    setSelectedTime(moment(cita.start).format('HH:mm:ss'));
-    setSelectedCliente(cliente);
-    setClientes([cliente]); // Precarga el cliente en las opciones
-    setSelectedEmpleado(empleado);
-    setSelectedServicios(serviciosSeleccionados);
-
-    setViewMode('agendar');
-  };
-
-  const resetFormulario = () => {
-    setSelectedNovedad(null);
-    setSelectedDate(null);
-    setSelectedTime(null);
-    setSelectedCliente(null);
-    setSelectedEmpleado(null);
-    setSelectedServicios([]);
-    setDiasDisponibles([]);
-    setHorasDisponibles([]);
-    setEditingCitaId(null);
-  };
-
-  // --- Filtrado y Renderizado ---
+function CitasPage() {
+  const [citasAgendadas, setCitasAgendadas] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [estadoFiltro, setEstadoFiltro] = useState("Todos");
 
-  const citasFiltradas = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    return citas.filter(cita => {
-        const matchesSearch = !term || Object.values(cita).some(val => String(val).toLowerCase().includes(term));
-        const matchesEstado = estadoFiltro === "Todos" || cita.estadoCita?.toLowerCase() === estadoFiltro.toLowerCase();
-        return matchesSearch && matchesEstado;
-    });
-  }, [citas, searchTerm, estadoFiltro]);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isConfirmCancelOpen, setIsConfirmCancelOpen] = useState(false);
+  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
 
-  const renderAgendarView = () => (
-    <div className="agendar-cita-container">
-      <div className="booking-content-wrapper">
-        <div className="seccion-izquierda">
-          <div className="form-group">
-            <label>1. Selecciona una Novedad</label>
-            <Select placeholder="Elige una novedad para empezar..." options={novedades.map(n => ({ value: n.id_novedad, label: n.nombre }))} onChange={setSelectedNovedad} value={selectedNovedad} />
-          </div>
-          <div className="calendar-container">
-            <label>2. Elige una Fecha</label>
-            <Calendar
-              onChange={handleDateChange}
-              value={selectedDate}
-              tileClassName={({ date, view }) => view === 'month' && diasDisponibles.includes(moment(date).format('YYYY-MM-DD')) ? 'dia-disponible' : null}
-              tileDisabled={({ date, view }) => view === 'month' && (!editingCitaId && moment(date).isBefore(moment(), 'day') || (selectedNovedad && !diasDisponibles.includes(moment(date).format('YYYY-MM-DD'))))}
-              onActiveStartDateChange={({ activeStartDate }) => setCurrentMonth(activeStartDate)}
-              minDate={editingCitaId ? null : new Date()}
-            />
-          </div>
-        </div>
-        <div className="seccion-derecha">
-           <div className="time-slots-container form-group">
-                <label>3. Elige un Horario</label>
-                <div className="slots-pills-container">
-                {horasDisponibles.length > 0 ? horasDisponibles.map(time => (
-                    <button key={time} className={`time-slot-pill ${selectedTime === time ? 'selected' : ''}`} onClick={() => setSelectedTime(time)}>
-                    {moment(time, 'HH:mm:ss').format('hh:mm A')}
-                    </button>
-                )) : <p className="no-slots-message">{selectedDate ? 'No hay horarios para este día.' : 'Selecciona un día para ver horarios.'}</p>}
-                </div>
-            </div>
-            <div className="form-group">
-                <label>4. Busca y Selecciona el Cliente</label>
-                <Select placeholder="Escribe para buscar un cliente..." options={clientes.map(c => ({ value: c.idCliente, label: `${c.nombre} ${c.apellido || ''}` }))} onInputChange={handleClienteSearch} onChange={setSelectedCliente} value={selectedCliente} isDisabled={!selectedTime} />
-            </div>
-            <div className="form-group">
-                <label>5. Selecciona el Empleado</label>
-                <Select placeholder="Elige un empleado..." options={empleados.map(e => ({ value: e.id_usuario, label: e.nombre }))} onChange={setSelectedEmpleado} value={selectedEmpleado} isDisabled={!selectedCliente} />
-            </div>
-            <div className="form-group">
-                <label>6. Selecciona los Servicios</label>
-                <Select isMulti placeholder="Elige uno o más servicios..." options={servicios.map(s => ({ value: s.idServicio, label: `${s.nombre} ($${s.precio})` }))} onChange={setSelectedServicios} value={selectedServicios} isDisabled={!selectedEmpleado} closeMenuOnSelect={false} />
-            </div>
-            <button className="btn-agendar-final" onClick={handleAgendarSubmit} disabled={isLoading || !selectedServicios.length}>
-                {isLoading ? 'Procesando...' : (editingCitaId ? 'Actualizar Cita' : 'Revisar y Agendar Cita')}
-            </button>
-        </div>
-      </div>
-    </div>
-  );
-  
-  const renderListView = () => (
-    <div className="citas-page-content-wrapper">
-      <div className="citas-header-actions">
-        <input type="text" placeholder="Busca en la lista..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="citas-search-input" />
-        <select value={estadoFiltro} onChange={(e) => setEstadoFiltro(e.target.value)} className="citas-filter-select">
-          <option value="Todos">Todos los Estados</option>
-          {[...new Set(citas.map(c => c.estadoCita))].map(estado => (
-            <option key={estado} value={estado}>{estado}</option>
-          ))}
-        </select>
-      </div>
-      <CitasTable
-        citas={citasFiltradas}
-        estadosCita={estadosCita}
-        onViewDetails={(cita) => { setCitaParaOperacion(cita); setIsDetailsModalOpen(true); }}
-        onEdit={handleEditCita}
-        onDelete={handleOpenDeleteConfirm}
-        onStatusChange={handleStatusChange}
-      />
-    </div>
-  );
+  const [selectedSlotOrEvent, setSelectedSlotOrEvent] = useState(null);
+  const [citaParaOperacion, setCitaParaOperacion] = useState(null);
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [validationMessage, setValidationMessage] = useState('');
+  const [validationTitle, setValidationTitle] = useState('Aviso');
+
+  const location = useLocation();
+  const navigate = useNavigate();
+  const clientePreseleccionado = location.state?.clientePreseleccionado || null;
+
+  const cargarDatosCompletos = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const agendadas = await fetchCitasAgendadas();
+      const normalizadas = agendadas.map(c => ({
+        ...c,
+        clienteNombre: c.cliente?.nombre
+          ? `${c.cliente.nombre} ${c.cliente.apellido || ""}`.trim()
+          : (c.cliente || "Sin cliente"),
+        empleadoNombre: c.empleado?.nombre || "Sin empleado",
+        serviciosNombres: (c.serviciosProgramados || []).map(s => s.nombre).join(", "),
+      }));
+
+      setCitasAgendadas(
+        normalizadas.sort(
+          (a, b) => moment(b.start).valueOf() - moment(a.start).valueOf()
+        )
+      );
+    } catch (error) {
+      console.error("Error al cargar citas:", error);
+      setValidationTitle("Error de Carga");
+      setValidationMessage("No se pudieron cargar las citas: " + error.message);
+      setIsValidationModalOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarDatosCompletos();
+  }, [cargarDatosCompletos]);
+
+  const handleCloseModals = () => {
+    setIsFormModalOpen(false);
+    setIsDetailsModalOpen(false);
+    setIsConfirmDeleteOpen(false);
+    setIsConfirmCancelOpen(false);
+    setIsValidationModalOpen(false);
+    setSelectedSlotOrEvent(null);
+    setCitaParaOperacion(null);
+    setValidationMessage('');
+    setValidationTitle('Aviso');
+  };
+
+  const handleOpenEditModal = (citaAEditar) => {
+    handleCloseModals();
+    setSelectedSlotOrEvent(citaAEditar);
+    setCitaParaOperacion(citaAEditar);
+    setIsFormModalOpen(true);
+  };
+
+  const handleOpenDeleteConfirm = (citaAEliminar) => {
+    handleCloseModals();
+    setCitaParaOperacion(citaAEliminar);
+    setIsConfirmDeleteOpen(true);
+  };
+
+  const handleOpenCancelConfirm = (citaACancelar) => {
+    handleCloseModals();
+    setCitaParaOperacion(citaACancelar);
+    setIsConfirmCancelOpen(true);
+  };
+
+  const handleSaveCitaSubmit = async (formDataFromModal) => {
+    try {
+      await saveCita(formDataFromModal);
+      cargarDatosCompletos();
+      handleCloseModals();
+      setValidationTitle("Éxito");
+      setValidationMessage(formDataFromModal.id ? "Cita actualizada exitosamente." : "Cita guardada exitosamente.");
+      setIsValidationModalOpen(true);
+    } catch (error) {
+      console.error("Error al guardar cita:", error);
+      setValidationTitle("Error al Guardar");
+      setValidationMessage(error.message || "Error desconocido.");
+      setIsValidationModalOpen(true);
+    }
+  };
+
+  const handleDeleteCitaConfirmada = async () => {
+    if (citaParaOperacion) {
+      try {
+        await serviceDeleteCitaById(citaParaOperacion.id);
+        cargarDatosCompletos();
+        handleCloseModals();
+        setValidationTitle("Éxito");
+        setValidationMessage(`Cita para "${citaParaOperacion.clienteNombre}" eliminada exitosamente.`);
+        setIsValidationModalOpen(true);
+      } catch (error) {
+        console.error("Error al eliminar cita:", error);
+        handleCloseModals();
+        setValidationTitle("Error al Eliminar");
+        setValidationMessage(error.message || "No se pudo eliminar la cita.");
+        setIsValidationModalOpen(true);
+      }
+    }
+  };
+
+  const handleMarkAsCompleted = async (citaId) => {
+    try {
+      await cambiarEstadoCita(citaId, "Completada");
+      cargarDatosCompletos();
+      setValidationTitle("Éxito");
+      setValidationMessage(`Cita #${citaId} marcada como Completada.`);
+      setIsValidationModalOpen(true);
+    } catch (error) {
+      setValidationTitle("Error");
+      setValidationMessage(error.message);
+      setIsValidationModalOpen(true);
+    }
+  };
+
+  const handleConfirmCancelCita = async () => {
+    if (citaParaOperacion) {
+      try {
+        const motivo = "Cancelada por Administrador";
+        await cambiarEstadoCita(citaParaOperacion.id, "Cancelada", motivo);
+        cargarDatosCompletos();
+        handleCloseModals();
+        setValidationTitle("Éxito");
+        setValidationMessage(`Cita #${citaParaOperacion.id} para "${citaParaOperacion.clienteNombre}" ha sido cancelada.`);
+        setIsValidationModalOpen(true);
+      } catch (error) {
+        handleCloseModals();
+        setValidationTitle("Error al Cancelar");
+        setValidationMessage(error.message);
+        setIsValidationModalOpen(true);
+      }
+    }
+  };
+
+  const citasFiltradas = useMemo(() => {
+    const term = (searchTerm || "").trim().toLowerCase();
+    return citasAgendadas.filter(cita => {
+      const matchesSearch =
+        !term ||
+        (cita.id && cita.id.toString().toLowerCase().includes(term)) ||
+        (cita.clienteNombre && cita.clienteNombre.toLowerCase().includes(term)) ||
+        (cita.empleadoNombre && cita.empleadoNombre.toLowerCase().includes(term)) ||
+        (cita.estadoCita && cita.estadoCita.toLowerCase().includes(term)) ||
+        (cita.serviciosNombres && cita.serviciosNombres.toLowerCase().includes(term));
+
+      const matchesEstado =
+        estadoFiltro === "Todos" ||
+        (cita.estadoCita && cita.estadoCita.toLowerCase() === estadoFiltro.toLowerCase());
+
+      return matchesSearch && matchesEstado;
+    });
+  }, [citasAgendadas, searchTerm, estadoFiltro]);
 
   return (
     <div className="admin-layout">
+      <NavbarAdmin />
       <div className="main-content">
-        <div className="citas-view-toggle">
-          <h1>{viewMode === 'agendar' ? (editingCitaId ? 'Editando Cita' : 'Agendar Nueva Cita') : 'Gestión de Citas'}</h1>
-          <button onClick={() => { setViewMode(viewMode === 'agendar' ? 'lista' : 'agendar'); resetFormulario(); }}>
-            {viewMode === 'agendar' ? 'Ver Lista de Citas' : 'Agendar Nueva Cita'}
-          </button>
+        <div className="citas-page-content-wrapper">
+          <h1>Gestión de Citas</h1>
+          {isLoading && <div className="cargando-pagina"><span>Cargando citas...</span><div className="spinner"></div></div>}
+
+          <div className="citas-header-actions" style={{ width: '100%', display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
+            <input
+              type="text"
+              placeholder="Busca por cualquier campo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="citas-search-input"
+              style={{ flex: 1 }}
+            />
+            <select
+              value={estadoFiltro}
+              onChange={(e) => setEstadoFiltro(e.target.value)}
+              className="citas-filter-select"
+              style={{ padding: '8px 10px', borderRadius: 6 }}
+            >
+              <option value="Todos">Todos los Estados</option>
+              <option value="Programada">Programadas</option>
+              <option value="En proceso">En proceso</option>
+              <option value="Completada">Completadas</option>
+              <option value="Cancelada">Canceladas</option>
+            </select>
+            <button
+              className="btn-agregar-cita"
+              // Al hacer clic, navega a la nueva ruta del formulario de agendamiento
+              onClick={() => navigate('/admin/citas/agendar')}
+            >
+              Agregar Cita
+            </button>
+          </div>
+
+          <CitasTable
+            citas={citasFiltradas}
+            onViewDetails={(cita) => {
+              setCitaParaOperacion(cita);
+              setIsDetailsModalOpen(true);
+            }}
+            onEdit={handleOpenEditModal}
+            onMarkAsCompleted={handleMarkAsCompleted}
+            onCancel={handleOpenCancelConfirm}
+            onDelete={handleOpenDeleteConfirm}
+          />
         </div>
-        
-        {isLoading && <div className="cargando-pagina"><span>Cargando...</span><div className="spinner"></div></div>}
-        {viewMode === 'agendar' ? renderAgendarView() : renderListView()}
       </div>
 
+      <CitaFormModal
+        isOpen={isFormModalOpen}
+        onClose={handleCloseModals}
+        onSubmit={handleSaveCitaSubmit}
+        initialSlotData={selectedSlotOrEvent}
+        clientePreseleccionado={clientePreseleccionado}
+      />
       <CitaDetalleModal
         isOpen={isDetailsModalOpen}
-        onClose={() => setIsDetailsModalOpen(false)}
+        onClose={handleCloseModals}
         cita={citaParaOperacion}
+        onEdit={handleOpenEditModal}
+        onDeleteConfirm={() => handleOpenDeleteConfirm(citaParaOperacion)}
+      />
+      <ConfirmModal
+        isOpen={isConfirmDeleteOpen}
+        onClose={handleCloseModals}
+        onConfirm={handleDeleteCitaConfirmada}
+        title="Confirmar Eliminación"
+        message={`¿Está seguro que desea eliminar la cita para "${citaParaOperacion?.clienteNombre || ''}" con ${citaParaOperacion?.empleadoNombre || ''} el ${citaParaOperacion?.start ? moment(citaParaOperacion.start).format("DD/MM/YY HH:mm") : ''}?`}
+        confirmText="Sí, Eliminar"
+        cancelText="No, Conservar"
+      />
+      <ConfirmModal
+        isOpen={isConfirmCancelOpen}
+        onClose={handleCloseModals}
+        onConfirm={handleConfirmCancelCita}
+        title="Confirmar Cancelación de Cita"
+        message={`¿Está seguro de que desea cancelar la cita #${citaParaOperacion?.id || ''} para "${citaParaOperacion?.clienteNombre || ''}"?`}
+        confirmText="Sí, Cancelar Cita"
+        cancelText="No, Mantener Cita"
+      />
+      <ValidationModal
+        isOpen={isValidationModalOpen}
+        onClose={handleCloseModals}
+        title={validationTitle}
+        message={validationMessage}
       />
     </div>
   );
 }
 
-export default CalendarioCitasPage;
+export default CitasPage;

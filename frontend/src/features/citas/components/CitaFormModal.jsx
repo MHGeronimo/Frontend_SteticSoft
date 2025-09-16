@@ -4,9 +4,9 @@ import moment from 'moment';
 import CitaForm from './CitaForm';
 import {
   // ✅ CORRECCIÓN: Nombres de funciones actualizados para coincidir con citasService.js
-  fetchServiciosDisponibles,
-  fetchEmpleadosPorNovedad, // Se usará cuando se tenga una novedad
-  buscarClientes,
+  fetchServiciosDisponiblesParaCitas,
+  fetchEmpleadosDisponiblesParaCitas, // Se usará cuando se tenga una novedad
+  fetchClientesParaCitas,
 } from '../services/citasService';
 import ItemSelectionModal from '../../../shared/components/common/ItemSelectionModal';
 
@@ -29,9 +29,9 @@ const CitaFormModal = ({ isOpen, onClose, onSubmit, initialSlotData, clientePres
       setError('');
 
       const promises = [
-        fetchServiciosDisponibles(),
+        fetchServiciosDisponiblesParaCitas(),
         // ✅ CORRECCIÓN: Solo buscamos empleados si tenemos una novedadId para la cita
-        novedadId ? fetchEmpleadosPorNovedad(novedadId) : Promise.resolve({ data: { data: [] } })
+        novedadId ? fetchEmpleadosDisponiblesParaCitas(novedadId) : Promise.resolve({ data: { data: [] } })
       ];
 
       Promise.all(promises).then(([serviciosRes, empleadosRes]) => {
@@ -82,7 +82,7 @@ const CitaFormModal = ({ isOpen, onClose, onSubmit, initialSlotData, clientePres
   // Lógica para buscar clientes
   const handleClienteSearch = (term) => {
     if (term.length > 2) {
-        buscarClientes(term).then(res => {
+        fetchClientesParaCitas(term).then(res => {
             setClientesList(res.data?.data || []);
         });
     }

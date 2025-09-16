@@ -1,132 +1,147 @@
 // src/features/citas/services/citasService.js
 import apiClient from "../../../shared/services/apiClient";
+import moment from "moment";
+// Asumo que este import es para obtener la lista de servicios, lo cual es correcto.
+import { getServicios } from "../../serviciosAdmin/services/serviciosAdminService";
 
 /**
- * Módulo de servicio para todas las operaciones relacionadas con las Citas.
+ * ✅ Obtener todas las citas desde la API
  */
+export const fetchCitasAgendadas = async () => {
+  try {
+    const response = await apiClient.get("/citas");
+    const citas = response.data?.data || [];
 
-// --- SERVICIOS PARA LA GESTIÓN DE CITAS (VISTAS DE TABLA, DETALLES) ---
-
-/**
- * Obtiene una lista paginada y filtrada de todas las citas.
- * @param {object} [filtros={}] - Opciones de filtrado (ej. estado, fecha, busqueda).
- * @returns {Promise<object>} La respuesta de la API con la lista de citas.
- */
-export const fetchCitas = (filtros = {}) => {
-  return apiClient.get('/citas', { params: filtros });
+    // Transformar la data para que sea compatible con el frontend (ej. FullCalendar)
+    return citas.map(c => ({
+      ...c,
+      title: c.cliente?.nombre || 'Cita', // Un título para eventos de calendario
+      start: moment(`${c.fecha} ${c.horaInicio}`).toDate(),
+      end: moment(`${c.fecha} ${c.horaFin}`).toDate(),
+    }));
+  } catch (error) {
+    console.error("Error al obtener citas:", error);
+    throw new Error("No se pudieron cargar las citas agendadas.");
+  }
 };
 
 /**
- * Obtiene los detalles completos de una sola cita por su ID.
- * @param {number} idCita - El ID de la cita a obtener.
- * @returns {Promise<object>} La respuesta de la API con los datos de la cita.
+ * ✅ Guardar una nueva cita o editar una existente
  */
-export const fetchCitaPorId = (idCita) => {
-  return apiClient.get(`/citas/${idCita}`);
+export const saveCita = async (citaData) => {
+  try {
+    // El objeto 'citaData' ya viene perfectamente formateado desde la página.
+    // Simplemente lo reenviamos.
+
+    // Para CREAR una nueva cita
+    if (!citaData.id) {
+      // Añadimos un log para confirmar qué está recibiendo el servicio
+      console.log("Servicio 'saveCita' (Crear) recibiendo:", citaData);
+      
+      const response = await apiClient.post("/citas", citaData);
+      return response.data.data;
+    } 
+    // Para EDITAR una cita
+    else {
+      console.log("Servicio 'saveCita' (Editar) recibiendo:", citaData);
+
+      const response = await apiClient.put(`/citas/${citaData.id}`, citaData);
+      return response.data.data;
+    }
+  } catch (error) {
+    console.error("Error en el servicio al guardar cita:", error);
+    // Lanza el error completo para que el componente pueda leer los detalles
+    throw error;
+  }
 };
 
 /**
- * Actualiza los datos de una cita existente.
- * @param {number} idCita - El ID de la cita a actualizar.
- * @param {object} datosActualizar - Objeto con los campos a modificar.
- * @returns {Promise<object>} La respuesta de la API con la cita actualizada.
+ * ✅ Eliminar cita por ID
  */
-export const actualizarCita = (idCita, datosActualizar) => {
-  // CORRECCIÓN: Usamos PATCH para actualizaciones parciales, según la definición de nuestra API.
-  return apiClient.patch(`/citas/${idCita}`, datosActualizar);
+export const deleteCitaById = async (citaId) => {
+  try {
+    await apiClient.delete(`/citas/${citaId}`);
+  } catch (error) {
+    console.error("Error al eliminar cita:", error);
+    throw new Error(error.response?.data?.message || "No se pudo eliminar la cita.");
+  }
 };
 
 /**
- * Cambia el estado de una cita. Esta es la función central para anular, activar, etc.
- * @param {number} idCita - El ID de la cita.
- * @param {string} nuevoEstado - El nuevo estado para la cita (ej. 'Cancelada', 'Activa').
- * @returns {Promise<object>} La respuesta de la API con la cita actualizada.
+ * ✅ Cambiar estado de una cita
  */
-export const cambiarEstadoCita = (idCita, nuevoEstado) => {
-  // ROBUSTEZ: Centralizamos todos los cambios de estado en un solo endpoint.
-  return apiClient.patch(`/citas/${idCita}/estado`, { estado: nuevoEstado });
+export const cambiarEstadoCita = async (citaId, nuevoEstado, motivo = "") => {
+  try {
+    const response = await apiClient.patch(`/citas/${citaId}/estado`, {
+      estado: nuevoEstado, // El backend puede esperar el nombre o un ID
+      motivoCancelacion: motivo,
+    });
+    return response.data.data;
+  } catch (error) {
+    console.error("Error al cambiar estado de cita:", error);
+    throw new Error(error.response?.data?.message || "No se pudo cambiar el estado de la cita.");
+  }
 };
 
 /**
- * Elimina una cita de forma permanente (borrado físico).
- * @param {number} idCita - El ID de la cita a eliminar.
- * @returns {Promise<object>} La respuesta de la API.
+ * ✅ Traer servicios disponibles para el formulario de citas
  */
-export const deleteCitaById = (idCita) => {
-  return apiClient.delete(`/citas/${idCita}`);
-};
-
-// --- SERVICIOS PARA EL FORMULARIO DE AGENDAMIENTO ---
-
-/**
- * Crea una nueva cita en el sistema.
- * @param {object} citaData - Los datos de la nueva cita.
- * @returns {Promise<object>} La respuesta de la API con la cita creada.
- */
-export const crearCita = (citaData) => {
-  return apiClient.post('/citas', citaData);
-};
-
-/**
- * Obtiene la lista de posibles estados para una cita.
- * @returns {Promise<object>} La respuesta de la API con un array de strings de estados.
- */
-export const fetchEstadosCita = () => {
-  // CORRECCIÓN: Se apunta a la ruta correcta que creamos en el backend.
-  return apiClient.get('/citas/estados');
+export const fetchServiciosDisponiblesParaCitas = async () => {
+  try {
+    // Asumo que getServicios() devuelve una estructura { data: { data: [...] } }
+    const response = await getServicios({ estado: true });
+    return (response?.data?.data || []).map(s => ({
+      ...s,
+      id: s.idServicio, // Normaliza el ID para el frontend
+      nombre: s.nombre,
+      precio: parseFloat(s.precio) || 0,
+    }));
+  } catch (error) {
+    console.error("Error al obtener servicios:", error);
+    throw new Error("No se pudieron cargar los servicios.");
+  }
 };
 
 /**
- * Obtiene las novedades (horarios de empleados) que están activas.
- * @returns {Promise<object>} La respuesta de la API con la lista de novedades.
+ * ✅ Traer clientes disponibles para el formulario de citas
  */
-export const fetchNovedadesAgendables = () => {
-  return apiClient.get('/novedades/agendables');
+export const fetchClientesParaCitas = async () => {
+  try {
+    const response = await apiClient.get("/clientes"); // Asumiendo que esta ruta devuelve todos los clientes
+    return response.data?.data || [];
+  } catch (error) {
+    console.error("Error al obtener clientes:", error);
+    throw new Error("No se pudieron cargar los clientes.");
+  }
 };
 
 /**
- * Obtiene los días laborables para una novedad en un mes y año específicos.
- * @param {number} idNovedad - El ID de la novedad.
- * @param {number} anio - El año a consultar.
- * @param {number} mes - El mes a consultar (1-12).
- * @returns {Promise<object>} La respuesta de la API con los días disponibles.
+ * ✅ NUEVA FUNCIÓN: Traer novedades de horario (agendables)
  */
-export const fetchDiasDisponibles = (idNovedad, anio, mes) => {
-  return apiClient.get(`/novedades/${idNovedad}/dias-disponibles`, { params: { anio, mes } });
+export const fetchNovedades = async () => {
+  try {
+    // La ruta debe coincidir con la de tu backend (novedades.routes.js)
+    const response = await apiClient.get("/novedades");
+    return response.data?.data || [];
+  } catch (error) {
+    console.error("Error al obtener novedades:", error);
+    throw new Error("No se pudieron cargar los horarios disponibles.");
+  }
 };
 
 /**
- * Obtiene las horas disponibles para una novedad en una fecha específica.
- * @param {number} idNovedad - El ID de la novedad.
- * @param {string} fecha - La fecha en formato YYYY-MM-DD.
- * @returns {Promise<object>} La respuesta de la API con las horas disponibles.
+ * ✅ Traer empleados disponibles
  */
-export const fetchHorasDisponibles = (idNovedad, fecha) => {
-  return apiClient.get(`/novedades/${idNovedad}/horas-disponibles`, { params: { fecha } });
-};
-
-/**
- * Obtiene los empleados asociados a una novedad (horario) específica.
- * @param {number} idNovedad - El ID de la novedad.
- * @returns {Promise<object>} La respuesta de la API con la lista de empleados.
- */
-export const fetchEmpleadosPorNovedad = (idNovedad) => {
-  return apiClient.get(`/novedades/${idNovedad}/empleados`);
-};
-
-/**
- * Obtiene todos los servicios que están activos para ser agendados.
- * @returns {Promise<object>} La respuesta de la API con la lista de servicios.
- */
-export const fetchServiciosDisponibles = () => {
-  return apiClient.get('/servicios/disponibles');
-};
-
-/**
- * Busca clientes activos por un término de búsqueda (nombre, apellido, documento).
- * @param {string} termino - El término a buscar.
- * @returns {Promise<object>} La respuesta de la API con los clientes encontrados.
- */
-export const buscarClientes = (termino) => {
-  return apiClient.get('/clientes/buscar', { params: { termino } });
+export const fetchEmpleadosDisponiblesParaCitas = async () => {
+  try {
+    const response = await apiClient.get("/empleados");
+    // El backend devuelve idUsuario, lo mapeamos a 'id' para consistencia en el frontend.
+    return (response.data?.data || []).map(emp => ({
+        ...emp,
+        id: emp.idUsuario 
+    }));
+  } catch (error) {
+    console.error("Error al obtener empleados:", error);
+    return [];
+  }
 };

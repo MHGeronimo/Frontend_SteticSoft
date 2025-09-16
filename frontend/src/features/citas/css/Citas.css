@@ -1,10 +1,41 @@
-@import "@/shared/styles/_variables.css";
-
 /*
 ============================================================
 === ESTILOS GENERALES Y VISTA DE AGENDAR CITAS ===
 ============================================================
 */
+
+/* 1. Definición de tus variables de color */
+:root {
+  --color-dia-lunes: #e0f2fe;     /* Celeste */
+  --color-dia-martes: #d1fae5;    /* Verde menta */
+  --color-dia-miercoles: #fef3c7; /* Amarillo pálido */
+  --color-dia-jueves: #fee2e2;    /* Rojo pálido */
+  --color-dia-viernes: #e5e7eb;   /* Gris claro */
+  --color-dia-sabado: #fae8ff;    /* Lavanda */
+  --color-dia-domingo: #ffedd5;   /* Naranja pálido */
+}
+
+/* 2. Clase base para todos los días disponibles */
+.dia-disponible {
+  border-radius: 8px !important;
+  font-weight: bold !important;
+  color: #333 !important;
+}
+
+/* 3. Asignación de colores usando las variables */
+.dia-lunes { background-color: var(--color-dia-lunes) !important; }
+.dia-martes { background-color: var(--color-dia-martes) !important; }
+.dia-miercoles { background-color: var(--color-dia-miercoles) !important; }
+.dia-jueves { background-color: var(--color-dia-jueves) !important; }
+.dia-viernes { background-color: var(--color-dia-viernes) !important; }
+.dia-sabado { background-color: var(--color-dia-sabado) !important; }
+.dia-domingo { background-color: var(--color-dia-domingo) !important; }
+
+/* 4. Estilo para el día seleccionado (sin cambios) */
+.react-calendar__tile--active.dia-disponible {
+  background-color: #006edc !important;
+  color: white !important;
+}
 
 /* --- Contenedor Principal --- */
 .agendar-cita-container {

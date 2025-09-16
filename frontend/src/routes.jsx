@@ -24,7 +24,7 @@ import { ListaCategoriasProductoPage } from './features/categoriasProductoAdmin'
 import { ListaProductosAdminPage } from "./features/productosAdmin";
 import { ListaServiciosAdminPage } from "./features/serviciosAdmin";
 import { ListaCategoriasServicioPage } from "./features/categoriasServicioAdmin";
-import { CalendarioCitasPage } from "./features/citas";
+import { CalendarioCitasPage, AgendarCitaPage } from './features/citas';
 import { ConfigHorariosPage } from "./features/novedades";
 import { ListaComprasPage, FormCompraPage } from "./features/compras";
 import { ListaVentasPage, ProcesoVentaPage } from "./features/ventas";
@@ -111,6 +111,7 @@ function AppRoutes() {
 
           <Route element={<PrivateRoute requiredPermission="MODULO_CITAS_GESTIONAR" />}>
             <Route path="citas" element={<CalendarioCitasPage />} />
+            <Route path="/admin/citas/agendar" element={<AgendarCitaPage />} />
           </Route>
 
           <Route element={<PrivateRoute requiredPermission="MODULO_NOVEDADES_EMPLEADOS_GESTIONAR" />}>
