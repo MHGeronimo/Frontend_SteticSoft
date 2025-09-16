@@ -11,33 +11,34 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         field: 'id_cita'
       },
+
       fecha: {
         type: DataTypes.DATEONLY,
         allowNull: false
       },
+
       horaInicio: {
         type: DataTypes.TIME,
         allowNull: false,
         field: 'hora_inicio'
       },
+
       precioTotal: {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: true,
         field: 'precio_total'
       },
-      // --- INICIO DE MODIFICACIÓN ---
-      // REEMPLAZAMOS el campo 'estado' de tipo STRING
-      // por una clave foránea 'idEstado' que se relaciona con la tabla 'estado'.
+
       idEstado: {
         type: DataTypes.INTEGER,
         allowNull: false,
         field: 'id_estado',
+        defaultValue: 5,
         references: {
-          model: 'estado', // Nombre de la tabla de estados
+          model: 'estado',
           key: 'id_estado'
         }
       },
-      // --- FIN DE MODIFICACIÓN ---
       idCliente: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -47,6 +48,7 @@ module.exports = (sequelize, DataTypes) => {
           key: 'id_cliente'
         }
       },
+
       idUsuario: {
         type: DataTypes.INTEGER,
         allowNull: true, 
@@ -56,6 +58,7 @@ module.exports = (sequelize, DataTypes) => {
           key: 'id_usuario'
         }
       },
+      
       idNovedad: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -73,15 +76,10 @@ module.exports = (sequelize, DataTypes) => {
   );
 
   Cita.associate = (models) => {
-    // --- INICIO DE NUEVA ASOCIACIÓN ---
-    // Definimos la relación: Una Cita pertenece a un Estado.
-    // Usamos el alias 'estadoDetalle' para ser consistentes con el servicio.
     Cita.belongsTo(models.Estado, {
       foreignKey: 'idEstado',
       as: 'estadoDetalle'
     });
-    // --- FIN DE NUEVA ASOCIACIÓN ---
-    
     Cita.belongsTo(models.Cliente, {
       foreignKey: 'idCliente',
       as: 'cliente'

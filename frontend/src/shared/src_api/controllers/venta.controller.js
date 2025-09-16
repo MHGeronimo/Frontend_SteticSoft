@@ -1,13 +1,14 @@
 // src/controllers/venta.controller.js
 const ventaService = require("../services/venta.service.js");
-const { BadRequestError } = require("../errors");
+const { BadRequestError, NotFoundError } = require("../errors");
+const db = require("../models");
 
 /**
  * Crea una nueva venta.
  */
 const crearVenta = async (req, res, next) => {
   try {
-    const nuevaVenta = await ventaService.crearVenta(req.body);
+    const nuevaVenta = await ventaService.crearVenta(req.body, req.user);
     res.status(201).json({
       success: true,
       message: "Venta creada exitosamente.",
@@ -165,6 +166,39 @@ const cambiarEstadoGeneralVenta = async (req, res, next) => {
   }
 };
 
+const listarVentasClienteMovil = async (req, res, next) => {
+  try {
+    const idUsuario = req.usuario.idUsuario;
+    const cliente = await db.Cliente.findOne({ where: { idUsuario: idUsuario } });
+
+    if (!cliente) {
+      throw new NotFoundError("No se encontró un perfil de cliente para este usuario.");
+    }
+
+    const ventas = await ventaService.findVentasByClienteIdMovil(cliente.idCliente);
+    res.status(200).json({
+      success: true,
+      data: ventas,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const obtenerVentaPorIdClienteMovil = async (req, res, next) => {
+  try {
+    const { idVenta } = req.params;
+    const idUsuario = req.user.idUsuario;
+    const venta = await ventaService.obtenerVentaPorIdClienteMovil(Number(idVenta), idUsuario);
+    res.status(200).json({
+      success: true,
+      data: venta,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   crearVenta,
   listarVentas,
@@ -173,5 +207,7 @@ module.exports = {
   anularVenta,
   habilitarVenta,
   eliminarVentaFisica,
-  cambiarEstadoGeneralVenta
+  cambiarEstadoGeneralVenta,
+  listarVentasClienteMovil,
+  obtenerVentaPorIdClienteMovil,
 };

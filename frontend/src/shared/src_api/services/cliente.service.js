@@ -386,6 +386,89 @@ const eliminarClienteFisico = async (idCliente) => {
   }
 };
 
+const actualizarPerfilCliente = async (idCliente, datosActualizar) => {
+  const transaction = await db.sequelize.transaction();
+  try {
+    const cliente = await db.Cliente.findByPk(idCliente, { transaction });
+    if (!cliente) {
+      throw new NotFoundError("Perfil de cliente no encontrado.");
+    }
+
+    // Campos permitidos para la actualización del perfil por parte del cliente
+    const camposPermitidos = ['nombre', 'apellido', 'telefono', 'direccion', 'correo'];
+    const datosParaCliente = {};
+    Object.keys(datosActualizar).forEach(key => {
+      if (camposPermitidos.includes(key)) {
+        datosParaCliente[key] = datosActualizar[key];
+      }
+    });
+
+    // Actualizar el perfil del cliente
+    await cliente.update(datosParaCliente, { transaction });
+
+    // Si el correo ha cambiado, actualizar también la tabla de usuarios
+    if (datosParaCliente.correo && cliente.idUsuario) {
+      const usuario = await db.Usuario.findByPk(cliente.idUsuario, { transaction });
+      if (usuario) {
+        await usuario.update({ correo: datosParaCliente.correo }, { transaction });
+      }
+    }
+
+    await transaction.commit();
+    return obtenerClientePorId(cliente.idCliente); // Devolver el perfil actualizado
+  } catch (error) {
+    await transaction.rollback();
+    if (error instanceof NotFoundError || error instanceof ConflictError) {
+      throw error;
+    }
+    console.error(`Error al actualizar el perfil del cliente con ID ${idCliente}:`, error.message);
+    throw new CustomError(`Error al actualizar el perfil: ${error.message}`, 500);
+  }
+};
+
+/**
+ * Obtiene el perfil de cliente por ID de usuario (para móvil).
+ */
+const getPerfilClientePorUsuarioId = async (idUsuario) => {
+  try {
+    const cliente = await db.Cliente.findOne({
+      where: { idUsuario },
+      include: [
+        {
+          model: db.Usuario,
+          as: "usuario",
+          attributes: ["idUsuario", "correo", "estado"],
+        },
+      ],
+    });
+    if (!cliente) {
+      throw new NotFoundError("Perfil de cliente no encontrado.");
+    }
+    return cliente;
+  } catch (error) {
+    if (error instanceof NotFoundError) throw error;
+    console.error(`Error al obtener perfil de cliente por usuario ID ${idUsuario}:`, error.message);
+    throw new CustomError(`Error al obtener perfil de cliente: ${error.message}`, 500);
+  }
+};
+
+/**
+ * Actualiza el perfil de cliente por ID de usuario (para móvil).
+ */
+const updatePerfilClientePorUsuarioId = async (idUsuario, datosActualizar) => {
+  try {
+    const cliente = await db.Cliente.findOne({ where: { idUsuario } });
+    if (!cliente) {
+      throw new NotFoundError("Perfil de cliente no encontrado.");
+    }
+    return await actualizarPerfilCliente(cliente.idCliente, datosActualizar);
+  } catch (error) {
+    if (error instanceof NotFoundError) throw error;
+    console.error(`Error al actualizar perfil de cliente por usuario ID ${idUsuario}:`, error.message);
+    throw new CustomError(`Error al actualizar perfil de cliente: ${error.message}`, 500);
+  }
+};
+
 module.exports = {
   crearCliente,
   obtenerTodosLosClientes,
@@ -396,4 +479,7 @@ module.exports = {
   eliminarClienteFisico,
   cambiarEstadoCliente,
   buscarClientesPorTermino,
+  actualizarPerfilCliente,
+  getPerfilClientePorUsuarioId,
+  updatePerfilClientePorUsuarioId,
 };

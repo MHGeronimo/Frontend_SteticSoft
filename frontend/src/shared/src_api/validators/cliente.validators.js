@@ -204,9 +204,52 @@ const cambiarEstadoClienteValidators = [
   handleValidationErrors,
 ];
 
+const updateMiPerfilValidators = [
+  body("nombre")
+    .optional()
+    .trim()
+    .notEmpty().withMessage("El nombre no puede estar vacío.")
+    .isLength({ min: 3, max: 50 }).withMessage("El nombre debe tener entre 3 y 50 caracteres."),
+  body("apellido")
+    .optional()
+    .trim()
+    .notEmpty().withMessage("El apellido no puede estar vacío.")
+    .isLength({ min: 3, max: 50 }).withMessage("El apellido debe tener entre 3 y 50 caracteres."),
+  body("telefono")
+    .optional()
+    .trim()
+    .notEmpty().withMessage("El teléfono no puede estar vacío.")
+    .isLength({ min: 7, max: 15 }).withMessage("El teléfono debe tener entre 7 y 15 dígitos.")
+    .isNumeric().withMessage("El teléfono solo puede contener números."),
+  body("direccion")
+    .optional()
+    .trim(),
+  body("correo")
+    .optional()
+    .trim()
+    .isEmail().withMessage("Debe proporcionar un correo electrónico válido.")
+    .normalizeEmail()
+    .custom(async (value, { req }) => {
+      // req.user.clienteInfo.correo es el correo actual del cliente
+      if (value.toLowerCase() !== req.user.clienteInfo.correo.toLowerCase()) {
+        const usuarioExistente = await db.Usuario.findOne({ where: { correo: value } });
+        if (usuarioExistente) {
+          return Promise.reject("El correo electrónico ya está en uso por otra cuenta.");
+        }
+      }
+    }),
+  // Impedir la actualización de campos sensibles por parte del cliente
+  body("tipoDocumento").not().exists().withMessage("El tipo de documento no se puede modificar."),
+  body("numeroDocumento").not().exists().withMessage("El número de documento no se puede modificar."),
+  body("estado").not().exists().withMessage("El estado no se puede modificar."),
+  handleValidationErrors,
+];
+
+
 module.exports = {
   clienteCreateValidators,
   clienteUpdateValidators,
   idClienteValidator,
   cambiarEstadoClienteValidators,
+  updateMiPerfilValidators,
 };

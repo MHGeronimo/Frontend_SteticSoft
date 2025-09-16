@@ -38,6 +38,7 @@ const registrarUsuario = async (datosRegistro) => {
     tipoDocumento,
     numeroDocumento,
     fechaNacimiento,
+    direccion,
   } = datosRegistro;
 
   const usuarioExistente = await db.Usuario.findOne({ where: { correo } });
@@ -98,6 +99,7 @@ const registrarUsuario = async (datosRegistro) => {
         tipoDocumento,
         numeroDocumento,
         fechaNacimiento,
+        direccion,
         estado: true,
       },
       { transaction }
@@ -175,10 +177,15 @@ const loginUsuario = async (correo, contrasena) => {
           {
             model: db.Permisos,
             as: "permisos",
-            attributes: ["nombre"], // Solo necesitamos el nombre del permiso
-            through: { attributes: [] }, // No traer la tabla de unión
+            attributes: ["nombre"],
+            through: { attributes: [] },
           },
         ],
+      },
+      {
+        model: db.Cliente,
+        as: "clienteInfo",
+        required: false,
       },
     ],
   });
@@ -219,97 +226,117 @@ const loginUsuario = async (correo, contrasena) => {
   return { usuario: usuarioJSON, token };
 };
 
-
 const solicitarRecuperacionContrasena = async (correo) => {
   const usuario = await db.Usuario.findOne({ where: { correo, estado: true } });
   if (!usuario) {
     console.warn(
       `Intento de recuperación para correo no existente o inactivo: ${correo}`
     );
-    return;
+    return; // No revelar si el correo existe o no
   }
 
-  const tokenRecuperacion = crypto.randomBytes(32).toString("hex");
+  // --- INICIO DE MODIFICACIÓN: Generación de Código OTP ---
+  // Generamos un número seguro de 6 dígitos (entre 100000 y 999999)
+  const tokenRecuperacion = crypto.randomInt(100000, 999999).toString();
+  // --- FIN DE MODIFICACIÓN ---
+
   const fechaExpiracion = new Date(
     Date.now() + TOKEN_RECUPERACION_EXPIRATION_MINUTES * 60 * 1000
   );
 
+  // Limpiamos tokens antiguos y creamos el nuevo
   await db.TokenRecuperacion.destroy({
     where: { idUsuario: usuario.idUsuario },
   });
   await db.TokenRecuperacion.create({
     idUsuario: usuario.idUsuario,
-    token: tokenRecuperacion,
+    token: tokenRecuperacion, // Guardamos el código de 6 dígitos
     fechaExpiracion,
   });
 
-  const enlaceRecuperacion = `${
-    FRONTEND_URL || "http://localhost:3001"
-  }/resetear-contrasena?token=${tokenRecuperacion}`;
-
+  // --- INICIO DE MODIFICACIÓN: Template de Correo para OTP ---
+  // Ya no necesitamos 'enlaceRecuperacion'
   const htmlCorreo = `
-    <div style="font-family: Arial, sans-serif; color: #333;">
+    <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <h2 style="color: #333; text-align: center;">Tu Código de Recuperación</h2>
         <p>Hola ${usuario.correo},</p>
         <p>Has solicitado restablecer tu contraseña para ${
           APP_NAME || "SteticSoft"
         }.</p>
-        <p>Por favor, haz clic en el siguiente enlace o cópialo en tu navegador para continuar:</p>
-        <p><a href="${enlaceRecuperacion}">${enlaceRecuperacion}</a></p>
-        <p>Este enlace expirará en ${TOKEN_RECUPERACION_EXPIRATION_MINUTES} minutos.</p>
+        <p>Usa el siguiente código de un solo uso para completar el proceso. Este código es confidencial, no lo compartas con nadie.</p>
+        
+        <div style="font-size: 36px; font-weight: bold; color: #000; text-align: center; letter-spacing: 5px; background: #f4f4f4; padding: 20px 0; border-radius: 5px; margin: 25px 0;">
+          ${tokenRecuperacion}
+        </div>
+
+        <p>Este código expirará en <strong>${TOKEN_RECUPERACION_EXPIRATION_MINUTES} minutos</strong>.</p>
         <p>Si no solicitaste esto, por favor ignora este correo.</p>
         <p>Saludos,<br>El equipo de ${APP_NAME || "SteticSoft"}</p>
     </div>`;
+  // --- FIN DE MODIFICACIÓN ---
 
   try {
     await mailerService({
       to: usuario.correo,
-      subject: `Recuperación de Contraseña - ${APP_NAME || "SteticSoft"}`,
+      subject: `Tu código de recuperación de contraseña - ${APP_NAME || "SteticSoft"}`,
       html: htmlCorreo,
     });
-    console.log(`Correo de recuperación enviado a ${usuario.correo}`);
+    console.log(`Correo de recuperación (OTP) enviado a ${usuario.correo}`);
   } catch (error) {
     console.error(
-      `Error al enviar correo de recuperación a ${usuario.correo}:`,
+      `Error al enviar correo de recuperación (OTP) a ${usuario.correo}:`,
       error
     );
+    // No lanzamos error al usuario, mantenemos el silencio operativo
   }
 };
 
-const validarTokenRecuperacion = async (token) => {
-  // Necesitamos Op de Sequelize para la comparación de fechas
-  const { Op } = require("sequelize");
+/**
+ * Resetea la contraseña usando el Correo, el Código OTP (token) y la nueva contraseña.
+ */
+const resetearContrasena = async (correo, tokenCodigo, nuevaContrasena) => {
+  // --- INICIO DE MODIFICACIÓN COMPLETA DE LA FUNCIÓN ---
 
-  if (!token)
-    throw new BadRequestError(
-      "Token de recuperación no proporcionado o inválido."
-    );
-  const tokenData = await db.TokenRecuperacion.findOne({
-    where: { token: token, fechaExpiracion: { [Op.gt]: new Date() } },
+  // 1. Validar que el usuario exista
+  const usuario = await db.Usuario.findOne({ where: { correo, estado: true } });
+  if (!usuario) {
+    // Es importante usar el mismo mensaje de error genérico para no revelar si un correo existe o no
+    throw new BadRequestError("Código de recuperación inválido, expirado o correo incorrecto.");
+  }
+
+  // 2. Validar el token (código OTP)
+  // Buscamos el token que coincida con el código, el idUsuario Y que no haya expirado.
+  const tokenDataValido = await db.TokenRecuperacion.findOne({
+    where: {
+      idUsuario: usuario.idUsuario,
+      token: tokenCodigo,
+      fechaExpiracion: { [Op.gt]: new Date() }, // Op.gt = "Greater Than" (Mayor que ahora)
+    },
   });
-  if (!tokenData)
-    throw new BadRequestError("Token de recuperación inválido o expirado.");
-  return tokenData;
-};
 
-const resetearContrasena = async (token, nuevaContrasena) => {
-  const tokenDataValido = await validarTokenRecuperacion(token);
-  const usuario = await db.Usuario.findByPk(tokenDataValido.idUsuario);
-  if (!usuario || !usuario.estado)
-    throw new NotFoundError(
-      "Usuario asociado al token no encontrado o inactivo."
-    );
+  if (!tokenDataValido) {
+    // Si no se encuentra, el código está mal o ya expiró.
+    throw new BadRequestError("Código de recuperación inválido, expirado o correo incorrecto.");
+  }
 
+  // 3. Si el código es válido, procedemos a resetear la contraseña y eliminar el token
   const contrasenaHasheada = await bcrypt.hash(nuevaContrasena, saltRounds);
   const transaction = await db.sequelize.transaction();
+
   try {
+    // Actualizamos la contraseña del usuario
     await usuario.update({ contrasena: contrasenaHasheada }, { transaction });
+
+    // Eliminamos el token (OTP) para que no pueda ser reutilizado
     await db.TokenRecuperacion.destroy({
-      where: { id: tokenDataValido.id },
+      where: { id: tokenDataValido.id }, // Usamos el ID del token encontrado
       transaction,
     });
-    await transaction.commit();
-    console.log(`Contraseña reseteada para usuario ID: ${usuario.idUsuario}`);
 
+    await transaction.commit();
+    console.log(`Contraseña reseteada exitosamente para usuario ID: ${usuario.idUsuario}`);
+
+    // (Opcional pero recomendado) Enviar correo de confirmación de cambio
     const htmlConfirmacion = `
     <div style="font-family: Arial, sans-serif; color: #333;">
         <p>Hola ${usuario.correo},</p>
@@ -335,21 +362,21 @@ const resetearContrasena = async (token, nuevaContrasena) => {
   } catch (error) {
     await transaction.rollback();
     console.error(
-      `Error al resetear la contraseña para usuario ID ${usuario.idUsuario}:`,
+      `Error al resetear la contraseña (transacción) para usuario ID ${usuario.idUsuario}:`,
       error.message,
       error.stack
     );
     throw new CustomError(
-      `Error al resetear la contraseña: ${error.message}`,
+      `Error al procesar el reseteo de contraseña: ${error.message}`,
       500
     );
   }
+  // --- FIN DE MODIFICACIÓN COMPLETA ---
 };
 
 module.exports = {
   registrarUsuario,
   loginUsuario,
   solicitarRecuperacionContrasena,
-  validarTokenRecuperacion,
   resetearContrasena,
 };

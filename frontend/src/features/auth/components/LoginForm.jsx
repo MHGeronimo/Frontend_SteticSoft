@@ -75,10 +75,6 @@ function LoginForm({ onSubmit, error }) {
 
       {error && <p className="auth-form-error">{error}</p>}
 
-      <div className="auth-form-link">
-        <Link to="/forgot-password">¿Olvidaste tu contraseña?</Link>
-      </div>
-
       <div className="auth-form-actions">
         <button type="submit" className="auth-primary-button">
           Entrar

@@ -8,13 +8,21 @@ const { checkPermission } = require("../middlewares/authorization.middleware.js"
 const PERMISO_MODULO_CITAS = "MODULO_CITAS_GESTIONAR";
 const PERMISO_MODULO_NOVEDADES = "MODULO_NOVEDADES_EMPLEADOS_GESTIONAR";
 
+// --- ENDPOINTS PÚBLICOS ---
+
+// Devuelve solo las novedades activas para la pantalla de inicio de la app móvil
+router.get(
+  "/public",
+  novedadesController.listarNovedadesPublicas
+);
+
 // --- ENDPOINTS DE SOPORTE PARA OTROS MÓDULOS ---
 
 // Devuelve solo las novedades activas para el formulario de citas.
 router.get(
   "/agendables",
   authMiddleware,
-  checkPermission(PERMISO_MODULO_CITAS),
+  checkPermission("MODULO_CITAS_CLIENTE"),
   novedadesController.listarNovedadesAgendables
 );
 

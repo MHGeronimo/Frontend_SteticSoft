@@ -5,12 +5,19 @@ const productoService = require("../services/producto.service.js");
  */
 const crearProducto = async (req, res, next) => {
   console.log("📦 Payload recibido en crearProducto:", req.body);
+  console.log("📁 Archivo recibido:", req.file);
   try {
     const datosProducto = { ...req.body };
 
     // ✅ Mapear idCategoriaProducto → categoriaProductoId
     if (datosProducto.idCategoriaProducto && !datosProducto.categoriaProductoId) {
       datosProducto.categoriaProductoId = Number(datosProducto.idCategoriaProducto);
+    }
+
+    // ✅ Manejar imagen de Cloudinary si existe
+    if (req.file) {
+      datosProducto.imagen = req.file.secure_url;
+      datosProducto.imagenPublicId = req.file.public_id;
     }
 
     const nuevoProducto = await productoService.crearProducto(datosProducto);
@@ -65,6 +72,12 @@ const actualizarProducto = async (req, res, next) => {
 
     if (datosActualizar.idCategoriaProducto && !datosActualizar.categoriaProductoId) {
       datosActualizar.categoriaProductoId = Number(datosActualizar.idCategoriaProducto);
+    }
+
+    // ✅ Manejar imagen de Cloudinary si existe
+    if (req.file) {
+      datosActualizar.imagen = req.file.secure_url;
+      datosActualizar.imagenPublicId = req.file.public_id;
     }
 
     const productoActualizado = await productoService.actualizarProducto(
@@ -175,44 +188,13 @@ const listarProductosInternos = async (req, res, next) => {
  */
 const listarProductosPublicos = async (req, res, next) => {
   try {
-    console.log("🔍 Entrando a listarProductosPublicos");
-
-    const resultado = await productoService.obtenerTodosLosProductos({
-      tipoUso: "Externo",
-    });
-    console.log("📥 Resultado crudo de productoService:", resultado);
-
-    // 🛡️ Lógica defensiva para asegurar que trabajamos con un array
-    const listaProductos = Array.isArray(resultado)
-      ? resultado
-      : resultado?.productos || [];
-
-    console.log("📦 Lista de productos procesada:", listaProductos.length, "items");
-
-    // 🔍 Filtrar productos cuyo estado sea `true` (activo).
-    const productosPublicos = listaProductos
-      .filter(p => {
-        const esActivo = p.estado === true;
-        console.log(`🔎 Producto ID ${p.idProducto} estado: ${p.estado} → ${esActivo ? "✅ incluido" : "❌ excluido"}`);
-        return esActivo;
-      })
-      .map(p => ({
-        id: p.idProducto,
-        nombre: p.nombre,
-        description: p.descripcion,
-        categoria: p.categoria,
-        price: p.precio,
-        imagenURL: p.imagen
-      }));
-
-    console.log("🧾 Productos públicos listos para enviar:", productosPublicos.length);
-
+    const { idCategoria } = req.params;
+    const productos = await productoService.obtenerProductosPublicos({ idCategoria });
     res.status(200).json({
       success: true,
-      data: productosPublicos,
+      data: productos,
     });
   } catch (error) {
-    console.error("❌ Error al listar productos públicos:", error);
     next(error);
   }
 };

@@ -5,7 +5,7 @@ import AbastecimientoTable from "../components/AbastecimientoTable";
 import AbastecimientoCrearModal from "../components/AbastecimientoCrearModal";
 import AbastecimientoEditarModal from "../components/AbastecimientoEditarModal";
 import AbastecimientoDetalleModal from "../components/AbastecimientoDetailsModal";
-import DepleteProductModal from "../components/DepleteProductModal"; 
+import DepleteProductModal from "../components/DepleteProductModal";
 import ConfirmModal from "../../../shared/components/common/ConfirmModal";
 import ValidationModal from "../../../shared/components/common/ValidationModal";
 import Pagination from "../../../shared/components/common/Pagination";
@@ -83,7 +83,6 @@ function ListaAbastecimientoPage() {
         setCurrentAbastecimiento(null);
     };
 
-    // ¡NUEVA FUNCIÓN! Maneja el éxito de Crear y Editar
     const handleSaveSuccess = (message = "Operación exitosa.") => {
         handleCloseAllModals();
         setValidationMessage(message);
@@ -91,7 +90,6 @@ function ListaAbastecimientoPage() {
         loadAbastecimientos(); // Recargar los datos
     };
     
-    // Las demás funciones de manejo no cambian
     const handleToggleEstado = async (item) => {
         try {
             await toggleAbastecimientoEstado(item.idAbastecimiento, !item.estado);
@@ -134,7 +132,6 @@ function ListaAbastecimientoPage() {
                 <div className="abastecimiento-content-wrapper">
                     <h1>Gestión de Abastecimiento</h1>
                     <div className="abastecimiento-actions-bar">
-                        {/* La barra de acciones no cambia */}
                         <div className="abastecimiento-search-bar">
                             <input
                                 type="text"
@@ -215,13 +212,15 @@ function ListaAbastecimientoPage() {
                 abastecimiento={currentAbastecimiento}
             />
 
+            {/* ✅ MODAL DE CONFIRMACIÓN CORREGIDO */}
             <ConfirmModal
                 isOpen={isConfirmDeleteOpen}
                 onClose={handleCloseAllModals}
                 onConfirm={handleDelete}
                 title="Confirmar Eliminación"
-                message={`¿Está seguro de eliminar el registro para ${abastecimientos?.usuario?.rol?.nombre || 'el empleado'} (${abastecimientos?.usuario?.correo || ''})?`}
+                message={`¿Está seguro de eliminar el registro para ${currentAbastecimiento?.usuario?.empleadoInfo?.nombre || 'el empleado'} (${currentAbastecimiento?.usuario?.correo || ''})?`}
             />
+            
             <ValidationModal
                 isOpen={isValidationModalOpen}
                 onClose={handleCloseAllModals}

@@ -76,25 +76,23 @@ export const solicitarRecuperacionAPI = async (emailSolicitud) => {
 };
 
 /**
- * Realiza la llamada al endpoint para restablecer la contraseña utilizando un token.
- * @param {string} token - Token de recuperación válido.
- * @param {string} nuevaContrasena - Nueva contraseña ingresada por el usuario.
- * @param {string} confirmarNuevaContrasena - Confirmación de la nueva contraseña.
+ * Realiza la llamada al endpoint para restablecer la contraseña utilizando un código OTP.
+ * @param {object} data - Objeto con los datos para el reseteo.
+ * @param {string} data.correo - Correo electrónico del usuario.
+ * @param {string} data.token - Código OTP de 6 dígitos.
+ * @param {string} data.nuevaContrasena - Nueva contraseña.
+ * @param {string} data.confirmarNuevaContrasena - Confirmación de la nueva contraseña.
  * @returns {Promise<object>} La respuesta de la API, generalmente un mensaje de éxito.
  * @throws {Error} Relanza el error si la llamada a la API falla.
  */
-export const resetearContrasenaAPI = async (
-  token,
-  nuevaContrasena,
-  confirmarNuevaContrasena
-) => {
+export const resetearContrasenaAPI = async (data) => {
   const datosParaAPI = {
-    token,
-    contrasena: nuevaContrasena,
-    confirmarContrasena: confirmarNuevaContrasena,
+    correo: data.correo,
+    token: data.token,
+    nuevaContrasena: data.nuevaContrasena,
+    confirmarNuevaContrasena: data.confirmarNuevaContrasena,
   };
   try {
-    // Petición POST al backend con los datos necesarios para el reseteo.
     const response = await apiClient.post(
       "/auth/resetear-contrasena",
       datosParaAPI

@@ -1,80 +1,92 @@
-// src/routes/servicio.routes.js
 const express = require("express");
 const router = express.Router();
 const servicioController = require("../controllers/servicio.controller.js");
 const servicioValidators = require("../validators/servicio.validators.js");
 const authMiddleware = require("../middlewares/auth.middleware.js");
-const { checkPermission } = require("../middlewares/authorization.middleware.js");
+const {
+  checkPermission,
+} = require("../middlewares/authorization.middleware.js");
+const {
+  handleValidationErrors,
+} = require("../middlewares/validation.middleware.js");
+const { processImageUpload } = require("../middlewares/upload.middleware"); // ✅ NUEVO
 
-const PERMISO_MODULO_CITAS = "MODULO_CITAS_GESTIONAR"; // Permiso para agendar
 const PERMISO_MODULO_SERVICIOS = "MODULO_SERVICIOS_GESTIONAR";
 
-// --- RUTAS DE LA API ---
+// --- RUTAS PÚBLICAS ---
+router.get("/public", servicioController.listarServiciosPublicos);
 
-// --- ✅ NUEVA RUTA PARA EL MÓDULO DE CITAS ---
-// Devuelve solo los servicios activos (estado=true) para ser usados en el agendamiento.
-// No necesita validador.
+// --- RUTAS PROTEGIDAS ---
 router.get(
   "/disponibles",
   authMiddleware,
-  checkPermission(PERMISO_MODULO_CITAS),
-  servicioController.listarServiciosDisponibles // Necesitaremos crear esta función
+  checkPermission("MODULO_CITAS_CLIENTE"),
+  servicioController.listarServiciosDisponibles
 );
 
-router.get("/public", servicioController.listarServiciosPublicos);
-
-// Crear un nuevo servicio
+// Usar processImageUpload para subida de imágenes en servicios
 router.post(
   "/",
   authMiddleware,
   checkPermission(PERMISO_MODULO_SERVICIOS),
+  processImageUpload("imagen", "steticsoft/servicios"), // ✅ Middleware Cloudinary
   servicioValidators.crearServicioValidators,
+  handleValidationErrors,
   servicioController.crearServicio
 );
 
-// Listar todos los servicios con filtros/búsqueda
+router.put(
+  "/:idServicio",
+  authMiddleware,
+  checkPermission(PERMISO_MODULO_SERVICIOS),
+  processImageUpload("imagen", "steticsoft/servicios"), // ✅ Middleware Cloudinary
+  servicioValidators.actualizarServicioValidators,
+  handleValidationErrors,
+  servicioController.actualizarServicio
+);
+
 router.get(
   "/",
   authMiddleware,
   checkPermission(PERMISO_MODULO_SERVICIOS),
-  servicioValidators.listarServiciosValidator, // <- debe ser un array de funciones
+  servicioValidators.listarServiciosValidator,
+  handleValidationErrors, // ✅ AÑADIDO
   servicioController.listarServicios
 );
 
-
-// Obtener un servicio por ID
 router.get(
   "/:idServicio",
   authMiddleware,
   checkPermission(PERMISO_MODULO_SERVICIOS),
   servicioValidators.idServicioValidator,
+  handleValidationErrors, // ✅ AÑADIDO
   servicioController.obtenerServicioPorId
 );
 
-// Actualizar un servicio (PUT para actualizaciones completas)
 router.put(
   "/:idServicio",
   authMiddleware,
   checkPermission(PERMISO_MODULO_SERVICIOS),
   servicioValidators.actualizarServicioValidators,
+  handleValidationErrors, // ✅ AÑADIDO
   servicioController.actualizarServicio
 );
 
-// Cambiar el estado de un servicio
 router.patch(
   "/:idServicio/estado",
   authMiddleware,
   checkPermission(PERMISO_MODULO_SERVICIOS),
   servicioValidators.cambiarEstadoServicioValidators,
+  handleValidationErrors, // ✅ AÑADIDO
   servicioController.cambiarEstadoServicio
 );
 
-// Eliminar un servicio
 router.delete(
   "/:idServicio",
   authMiddleware,
   checkPermission(PERMISO_MODULO_SERVICIOS),
   servicioValidators.idServicioValidator,
+  handleValidationErrors, // ✅ AÑADIDO
   servicioController.eliminarServicioFisico
 );
 

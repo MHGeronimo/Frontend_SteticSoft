@@ -8,23 +8,32 @@ const authMiddleware = require("../middlewares/auth.middleware.js");
 const {
   checkPermission,
 } = require("../middlewares/authorization.middleware.js");
+const { processImageUpload } = require("../middlewares/upload.middleware"); // ✅ NUEVO
 
+// INICIO DE MODIFICACIÓN: Importar el validador correcto
+const categoriaProductoValidators = require("../validators/categoriaProducto.validators.js");
+// FIN DE MODIFICACIÓN
 
 const PERMISO_MODULO_PRODUCTOS = "MODULO_PRODUCTOS_GESTIONAR";
 
 // Ruta pública para obtener productos activos
+router.get("/public", productoController.listarProductosPublicos);
+
+// Ruta pública para obtener productos activos por categoría
 router.get(
-  "/public",
+  "/public/:idCategoria",
+  // INICIO DE MODIFICACIÓN: Usar el validador importado correctamente
+  categoriaProductoValidators.idCategoriaProductoValidator,
+  // FIN DE MODIFICACIÓN
   productoController.listarProductosPublicos
 );
-
 
 // Ruta para crear un nuevo producto, incluye subida de imagen.
 router.post(
   "/",
   authMiddleware,
   checkPermission(PERMISO_MODULO_PRODUCTOS),
-  // El middleware de Multer procesa el campo 'imagen' antes de la validación.
+  processImageUpload("imagen", "steticsoft/productos"), // ✅ Middleware Cloudinary
   productoValidators.crearProductoValidators,
   productoController.crearProducto
 );
@@ -59,7 +68,7 @@ router.put(
   "/:idProducto",
   authMiddleware,
   checkPermission(PERMISO_MODULO_PRODUCTOS),
-  // El middleware de Multer también se aplica aquí para la actualización de la imagen.
+  processImageUpload("imagen", "steticsoft/productos"), // ✅ Middleware Cloudinary
   productoValidators.actualizarProductoValidators,
   productoController.actualizarProducto
 );

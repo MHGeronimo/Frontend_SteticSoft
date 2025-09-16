@@ -34,6 +34,14 @@ router.get(
   empleadoController.listarEmpleadosActivos
 );
 
+// Ruta para que los clientes vean empleados disponibles para citas
+router.get(
+  "/disponibles",
+  authMiddleware,
+  checkPermission("MODULO_CITAS_CLIENTE"),
+  empleadoController.listarEmpleadosActivos
+);
+
 router.get(
   "/:idEmpleado",
   authMiddleware,

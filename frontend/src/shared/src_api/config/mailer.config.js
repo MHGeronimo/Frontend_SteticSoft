@@ -11,43 +11,41 @@ const {
 
 if (!EMAIL_USER || !EMAIL_PASS) {
   console.warn(
-    "⚠️ Advertencia: Credenciales de email (EMAIL_USER, EMAIL_PASS) no configuradas. El envío de correos podría fallar."
+    "⚠️ Advertencia: Credenciales de email no configuradas. El envío de correos podría fallar."
   );
 }
 
+const DEFAULT_EMAIL_HOST = "smtp.gmail.com";
+const DEFAULT_EMAIL_PORT = 587;
+
 const mailerConfig = {
-  host: EMAIL_HOST || "smtp.gmail.com",
-  port: EMAIL_PORT || 587,
-  secure: EMAIL_SECURE || false, // true para 465, false para otros (STARTTLS)
+  host: EMAIL_HOST || DEFAULT_EMAIL_HOST,
+  port: EMAIL_PORT || DEFAULT_EMAIL_PORT,
+  secure: EMAIL_SECURE || false,
   auth: {
     user: EMAIL_USER,
-    pass: EMAIL_PASS, // Para Gmail, usar contraseña de aplicación si 2FA está activado
+    pass: EMAIL_PASS,
   },
-  // Desactivar la verificación TLS en desarrollo si usas un servidor SMTP local con certificado autofirmado
-  // NUNCA USAR rejectUnauthorized: false en producción con Gmail u otros servicios públicos.
   ...(IS_DEVELOPMENT &&
-    EMAIL_HOST !== "smtp.gmail.com" && {
+    EMAIL_HOST !== DEFAULT_EMAIL_HOST && {
       tls: { rejectUnauthorized: false },
     }),
-  connectionTimeout: 10000, // 10 segundos
+  connectionTimeout: 10000,
   greetingTimeout: 10000,
   socketTimeout: 10000,
 };
 
 const transporter = nodemailer.createTransport(mailerConfig);
 
-// Verificar la conexión del transporter (opcional, pero útil)
 transporter.verify((error, success) => {
   if (error) {
     console.error(
-      "❌ Error al verificar la configuración del transporter de Nodemailer:",
+      "❌ Error al verificar la configuración de Nodemailer:",
       error.message
     );
     console.warn("⚠️ El servicio de correo podría no estar operativo.");
   } else {
-    console.log(
-      "📨 Servidor de correo (Nodemailer) listo para enviar mensajes."
-    );
+    console.log("📨 Servidor de correo listo para enviar mensajes.");
   }
 });
 

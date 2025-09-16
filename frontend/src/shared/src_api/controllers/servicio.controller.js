@@ -1,15 +1,31 @@
 // src/controllers/servicio.controller.js
+const { handleValidationErrors } = require("../middlewares/validation.middleware");
+const { 
+  validateServicio, 
+  validateServicioUpdate,  // ✅ Añadir esto
+  listarServiciosValidator,
+  cambiarEstadoServicioValidators,
+  idServicioValidator
+} = require("../validators/servicio.validators");
 const servicioService = require("../services/servicio.service.js");
 
-// ... (las funciones crearServicio, listarServicios, etc., se mantienen como estaban)
 const crearServicio = async (req, res, next) => {
-    try {
-        const servicioData = req.body;
-        const nuevo = await servicioService.crearServicio(servicioData);
-        res.status(201).json({ success: true, message: "Servicio creado.", data: nuevo });
-    } catch (error) {
-        next(error);
+  try {
+    // ✅ Los campos textuales vienen en req.body
+    // ✅ La imagen viene en req.file (si se subió)
+    const servicioData = { ...req.body };
+
+    // ✅ Manejar imagen de Cloudinary si existe
+    if (req.file) {
+      servicioData.imagen = req.file.secure_url;
+      servicioData.imagenPublicId = req.file.public_id;
     }
+
+    const nuevo = await servicioService.crearServicio(servicioData);
+    res.status(201).json({ success: true, message: "Servicio creado.", data: nuevo });
+  } catch (error) {
+    next(error);
+  }
 };
 
 const listarServicios = async (req, res, next) => {
@@ -17,7 +33,7 @@ const listarServicios = async (req, res, next) => {
         const filtros = {
             busqueda: req.query.busqueda,
             estado: req.query.estado,
-            idCategoriaServicio: req.query.idCategoriaServicio || req.query.categoriaServicioId,
+            idCategoriaServicio: req.query.idCategoriaServicio,
         };
         const servicios = await servicioService.obtenerTodosLosServicios(filtros);
         res.status(200).json({ success: true, data: servicios });
@@ -38,16 +54,15 @@ const listarServiciosDisponibles = async (req, res, next) => {
     }
 };
 
-// ... (el resto de las funciones: listarServiciosPublicos, obtenerServicioPorId, etc., se mantienen)
-
 const listarServiciosPublicos = async (req, res, next) => {
     try {
-        const servicios = await servicioService.obtenerTodosLosServicios({ estado: "Activo" });
+        const servicios = await servicioService.obtenerTodosLosServicios({ estado: true });  // ✅ Corregido
         res.status(200).json({ success: true, data: servicios });
     } catch (error) {
         next(error);
     }
 };
+
 const obtenerServicioPorId = async (req, res, next) => {
     try {
         const { idServicio } = req.params;
@@ -60,7 +75,14 @@ const obtenerServicioPorId = async (req, res, next) => {
 const actualizarServicio = async (req, res, next) => {
     try {
         const { idServicio } = req.params;
-        const servicioData = req.body;
+        const servicioData = { ...req.body };
+
+        // ✅ Manejar imagen de Cloudinary si existe
+        if (req.file) {
+            servicioData.imagen = req.file.secure_url;
+            servicioData.imagenPublicId = req.file.public_id;
+        }
+
         const actualizado = await servicioService.actualizarServicio(Number(idServicio), servicioData);
         res.status(200).json({ success: true, message: "Servicio actualizado.", data: actualizado });
     } catch (error) {
@@ -89,11 +111,11 @@ const eliminarServicioFisico = async (req, res, next) => {
 
 module.exports = {
   crearServicio,
-  listarServicios,
+ listarServicios,
   listarServiciosPublicos,
   obtenerServicioPorId,
   actualizarServicio,
   cambiarEstadoServicio,
   eliminarServicioFisico,
-  listarServiciosDisponibles, // ✅ Exportar la nueva función
+  listarServiciosDisponibles,
 };

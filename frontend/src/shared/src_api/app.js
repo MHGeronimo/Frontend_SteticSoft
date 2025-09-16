@@ -15,69 +15,81 @@ const {
 // Importar middlewares
 const sessionMiddleware = require("./config/session.config.js");
 const apiRoutes = require("./routes/index.js");
+const healthRoutes = require("./routes/health.routes.js");
 const { NotFoundError } = require("./errors/NotFoundError.js");
 const errorHandler = require("./middlewares/errorHandler.middleware.js");
 
 // Crear la instancia de la aplicación Express
 const app = express();
 
+
 // --- Middlewares Esenciales ---
 
-// 1. Helmet
+// 1. Helmet (para seguridad básica)
 app.use(helmet());
 
-// 2. CORS
-app.use(
-  cors({
-    origin: CORS_ORIGIN,
-    credentials: true,
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-    optionsSuccessStatus: 204,
-  })
-);
+// ✅ 2. CORS (CONFIGURACIÓN DEFINITIVA Y CORRECTA)
+// Esta es la parte más importante. Define qué "orígenes" (dominios) tienen permiso.
+const whitelist = [CORS_ORIGIN, "http://localhost:5173", "http://localhost:5174"];
 
-// 3. Morgan
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Permite peticiones sin origen (como las de Postman o apps móviles) y las de la whitelist
+    if (!origin || whitelist.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true, // Permite que el frontend envíe cookies o tokens de autorización
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  optionsSuccessStatus: 204,
+};
+
+// Se aplica el middleware de CORS ANTES de las rutas.
+app.use(cors(corsOptions));
+
+
+// 3. Morgan (para logs de peticiones)
 if (NODE_ENV === "development") {
   app.use(morgan(LOG_LEVEL || "dev"));
 }
 
-// 4. Parseadores de Cuerpo
+// 4. Parseadores de Cuerpo (para leer JSON)
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // 5. Configuración de Sesiones
 app.use(sessionMiddleware);
 
-// --- Rutas Estáticas y de Bienvenida ---
 
-// Servir otros archivos estáticos desde 'src/public'
+// --- Rutas ---
+
+// Servir archivos estáticos (si los tienes)
 app.use(express.static(path.join(__dirname, "public")));
 
-// Ruta raíz para servir la página de bienvenida
+// Ruta de bienvenida
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "welcome.html"));
 });
 
-// --- Rutas Principales de la API ---
+// Rutas principales de la API
 app.use("/api", apiRoutes);
 
-// --- Manejo de Errores ---
+// Rutas de chequeo de salud
+app.use("/api/health", healthRoutes);
+
+
+// --- Manejo de Errores (al final de todo) ---
 
 // Manejador para Rutas No Encontradas (404)
-const manejador404 = (req, res, next) => {
-  if (!req.route && req.path !== "/" && !req.path.startsWith("/api/")) {
-    return next(
-      new NotFoundError(
-        `El recurso solicitado no fue encontrado: ${req.method} ${req.originalUrl}`
-      )
-    );
-  }
-  next();
-};
-app.use(manejador404);
+app.use((req, res, next) => {
+    next(new NotFoundError(`El recurso solicitado no fue encontrado: ${req.method} ${req.originalUrl}`));
+});
 
 // Middleware Global de Manejo de Errores
 app.use(errorHandler);
 
-// Exportar la instancia de la aplicación Express
+
+// Exportar la aplicación
 module.exports = app;

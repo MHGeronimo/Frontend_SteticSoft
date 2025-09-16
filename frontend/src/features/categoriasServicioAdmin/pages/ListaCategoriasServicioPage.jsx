@@ -68,14 +68,33 @@ const ListaCategoriasServicioPage = () => {
     }
 
     if (terminoBusqueda.trim() !== '') {
-      const busquedaLower = terminoBusqueda.toLowerCase();
-      dataFiltrada = dataFiltrada.filter(cat =>
-        cat.nombre.toLowerCase().includes(busquedaLower) ||
-        (cat.descripcion && cat.descripcion.toLowerCase().includes(busquedaLower))
-      );
-    }
-    
-    return dataFiltrada;
+  const busquedaNormalizada = terminoBusqueda
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  dataFiltrada = dataFiltrada.filter(cat => {
+    const nombreNormalizado = cat.nombre
+      ?.toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") || '';
+
+    const descripcionNormalizada = cat.descripcion
+      ?.toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") || '';
+
+    const estadoTexto = cat.estado ? 'activo' : 'inactivo';
+
+    return (
+      nombreNormalizado.includes(busquedaNormalizada) ||
+      descripcionNormalizada.includes(busquedaNormalizada) ||
+      estadoTexto.includes(busquedaNormalizada)
+    );
+  });
+}
+return dataFiltrada;
+
   }, [categorias, terminoBusqueda, filtroEstado]);
 
   const paginatedData = useMemo(() => {
@@ -246,7 +265,7 @@ const ListaCategoriasServicioPage = () => {
             <div className="filtro-estado-grupo">
                 <select
                   id="filtro-estado"
-                  className="filtro-input"
+                  className="filtro-input-estados"
                   value={filtroEstado}
                   onChange={(e) => {
                     setFiltroEstado(e.target.value);

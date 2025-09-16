@@ -44,7 +44,7 @@ function LoginPage() {
         <h2 className="auth-form-title">Iniciar Sesión</h2>
         <LoginForm onSubmit={handleLoginSubmit} error={error} isLoading={isLoading} />
         <div className="auth-form-actions">
-          <Link to="/auth/solicitar-recuperacion" className="auth-secondary-button">
+          <Link to="/password-recovery" className="auth-secondary-button">
             ¿Olvidaste tu contraseña?
           </Link>
           <Link to="/register" className="auth-secondary-button">

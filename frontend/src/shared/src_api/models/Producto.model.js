@@ -24,6 +24,9 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         defaultValue: 0,
         field: "existencia",
+        validate: {
+          min: 0,
+        },
       },
       precio: {
         type: DataTypes.DECIMAL(12, 2),
@@ -41,8 +44,12 @@ module.exports = (sequelize, DataTypes) => {
         field: "stock_maximo",
       },
       imagen: {
-        type: DataTypes.TEXT,
+        type: DataTypes.STRING(255),
         field: "imagen",
+      },
+      imagenPublicId: {
+        type: DataTypes.STRING(255),
+        field: "imagen_public_id",
       },
       estado: {
         type: DataTypes.BOOLEAN,
@@ -51,10 +58,13 @@ module.exports = (sequelize, DataTypes) => {
         field: "estado",
       },
       tipoUso: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
-      field: "tipo_uso",
-},
+        type: DataTypes.STRING(10),
+        allowNull: false,
+        field: "tipo_uso",
+        validate: {
+          isIn: [['Interno', 'Externo']],
+        },
+      },
       vidaUtilDias: {
         type: DataTypes.INTEGER,
         allowNull: true,
@@ -64,6 +74,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: true,
         field: "id_categoria_producto",
+        references: {
+          model: 'categoria_producto',
+          key: 'id_categoria_producto'
+        },
+        onDelete: 'RESTRICT'
       },
     },
     {

@@ -12,6 +12,21 @@ const {
 const PERMISO_MODULO_CLIENTES = "MODULO_CLIENTES_GESTIONAR";
 const PERMISO_MODULO_CITAS = "MODULO_CITAS_GESTIONAR"; // Quien agenda citas necesita buscar clientes
 
+// Ruta para que un cliente obtenga su propio perfil
+router.get(
+  "/me",
+  authMiddleware,
+  clienteController.getMiPerfil
+);
+
+// Ruta para que un cliente actualice su propio perfil
+router.put(
+  "/me",
+  authMiddleware,
+  clienteValidators.updateMiPerfilValidators,
+  clienteController.updateMiPerfil
+);
+
 router.get(
   "/buscar",
   authMiddleware,

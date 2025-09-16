@@ -39,11 +39,21 @@ const authMiddleware = async (req, res, next) => {
               as: "permisos",
               attributes: ["nombre"],
               through: { attributes: [] },
-              where: { estado: true }, // Asegurarnos que solo traemos permisos activos
+              where: { estado: true },
               required: false,
             },
           ],
         },
+        {
+          model: db.Cliente,
+          as: "clienteInfo",
+          required: false,
+        },
+        {
+          model: db.Empleado,
+          as: "empleadoInfo",
+          required: false,
+        }
       ],
     });
 
@@ -53,17 +63,17 @@ const authMiddleware = async (req, res, next) => {
       );
     }
 
-    // Extraer los nombres de los permisos del objeto de rol
     const permisosUsuario =
       usuario.rol.permisos?.map((permiso) => permiso.nombre) || [];
 
-    // Adjuntar la información enriquecida al objeto request
     req.usuario = {
       idUsuario: usuario.idUsuario,
       correo: usuario.correo,
       idRol: usuario.idRol,
       rolNombre: usuario.rol.nombre,
-      permisos: permisosUsuario, // ¡Aquí está la lista de permisos!
+      permisos: permisosUsuario,
+      clienteInfo: usuario.clienteInfo ? usuario.clienteInfo.toJSON() : null,
+      empleadoInfo: usuario.empleadoInfo ? usuario.empleadoInfo.toJSON() : null,
     };
 
     next();

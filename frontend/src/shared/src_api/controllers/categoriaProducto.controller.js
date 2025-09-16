@@ -167,6 +167,22 @@ const eliminarCategoriaProductoFisica = async (req, res, next) => {
   }
 };
 
+/**
+ * Obtiene una lista de todas las categorías de producto públicas (activas).
+ */
+const listarCategoriasPublicas = async (req, res, next) => {
+  try {
+    const categorias =
+      await categoriaProductoService.obtenerCategoriasPublicas();
+    res.status(200).json({
+      success: true,
+      data: categorias,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   crearCategoriaProducto,
   listarCategoriasProducto,
@@ -176,4 +192,5 @@ module.exports = {
   habilitarCategoriaProducto,
   eliminarCategoriaProductoFisica,
   cambiarEstadoCategoriaProducto,
+  listarCategoriasPublicas,
 };

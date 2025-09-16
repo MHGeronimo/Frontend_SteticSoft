@@ -80,7 +80,7 @@ module.exports = (sequelize, DataTypes) => {
     // Un Abastecimiento es registrado por un Usuario (Empleado).
     Abastecimiento.belongsTo(models.Usuario, {
       foreignKey: 'idUsuario',
-      as: 'usuario'
+      as: 'empleado'
     });
   };
 

@@ -34,7 +34,7 @@ const crearProductoValidators = [
   body("existencia")
   .notEmpty().withMessage("La existencia es obligatoria.")
   .toInt()
-  .isInt().withMessage("La existencia debe ser un número entero."),
+  .isInt({ min: 0 }).withMessage("La existencia debe ser un número entero no negativo."),
 
 
   body("stockMinimo")

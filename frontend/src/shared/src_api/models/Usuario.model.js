@@ -49,31 +49,27 @@ module.exports = (sequelize, DataTypes) => {
   );
 
   Usuario.associate = (models) => {
-    // Un Usuario pertenece a un Rol.
     Usuario.belongsTo(models.Rol, {
-      foreignKey: 'idRol', // Se refiere al atributo 'idRol' en este mismo modelo.
+      foreignKey: 'idRol',
       as: 'rol'
     });
 
-    // Un Usuario tiene un perfil de Cliente (relación 1 a 1).
     Usuario.hasOne(models.Cliente, {
-      foreignKey: 'idUsuario', // Se refiere al atributo 'idUsuario' en el modelo Cliente.
+      foreignKey: 'idUsuario',
       as: 'clienteInfo'
     });
 
-    // Un Usuario tiene un perfil de Empleado (relación 1 a 1).
+    // ✅ AJUSTE FINAL: Se especifica la clave foránea de forma explícita en la asociación
     Usuario.hasOne(models.Empleado, {
-      foreignKey: 'idUsuario', // Se refiere al atributo 'idUsuario' en el modelo Empleado.
+      foreignKey: 'idUsuario', 
       as: 'empleadoInfo'
     });
 
-    // Un Usuario puede tener muchos Tokens de Recuperación.
     Usuario.hasMany(models.TokenRecuperacion, {
-      foreignKey: 'idUsuario', // Se refiere al atributo 'idUsuario' en el modelo TokenRecuperacion.
+      foreignKey: 'idUsuario',
       as: 'tokensRecuperacion'
     });
 
-        // ✅ NUEVA ASOCIACIÓN: Un Usuario (Empleado) puede tener muchas Novedades.
     Usuario.belongsToMany(models.Novedad, {
       through: 'NovedadEmpleado',
       foreignKey: 'id_usuario',
@@ -81,19 +77,16 @@ module.exports = (sequelize, DataTypes) => {
       as: 'novedades'
     });
 
-    // Un Usuario (Empleado) puede registrar muchos Abastecimientos.
     Usuario.hasMany(models.Abastecimiento, {
       foreignKey: 'idUsuario',
       as: 'abastecimientos'
     });
 
-    // Un usuario puede modificar roles, quedando registrado en el historial.
     Usuario.hasMany(models.HistorialCambiosRol, {
       foreignKey: "idUsuarioModifico",
       as: "modificacionesDeRol",
     });
 
-    // Un usuario puede asignar permisos, quedando registrado en la tabla de unión.
     Usuario.hasMany(models.PermisosXRol, {
       foreignKey: "asignadoPor",
       as: "asignacionesDePermisos",

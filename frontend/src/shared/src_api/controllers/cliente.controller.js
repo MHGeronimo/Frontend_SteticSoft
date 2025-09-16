@@ -234,6 +234,36 @@ const obtenerTodosLosClientes = async (req, res, next) => {
   }
 };
 
+const getMiPerfil = async (req, res, next) => {
+  try {
+    // El perfil del cliente ya fue adjuntado en el login
+    const clienteInfo = req.user.clienteInfo;
+    if (!clienteInfo) {
+      return res.status(404).json({ success: false, message: "Perfil de cliente no encontrado para este usuario." });
+    }
+    res.status(200).json({ success: true, data: clienteInfo });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateMiPerfil = async (req, res, next) => {
+  try {
+    const idCliente = req.user.clienteInfo?.idCliente;
+    if (!idCliente) {
+      return res.status(404).json({ success: false, message: "Perfil de cliente no encontrado para este usuario." });
+    }
+    const clienteActualizado = await clienteService.actualizarPerfilCliente(idCliente, req.body);
+    res.status(200).json({
+      success: true,
+      message: "Perfil actualizado exitosamente.",
+      data: clienteActualizado,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   crearCliente,
   listarClientes,
@@ -244,5 +274,7 @@ module.exports = {
   eliminarClienteFisico,
   cambiarEstadoCliente,
   obtenerTodosLosClientes,
-    buscarClientes, 
+  buscarClientes,
+  getMiPerfil,
+  updateMiPerfil,
 };

@@ -411,10 +411,20 @@ const cambiarEstadoCita = async (idCita, idNuevoEstado) => {
 const eliminarCitaFisica = async (idCita) => {
   const transaction = await db.sequelize.transaction();
   try {
-    const cita = await db.Cita.findByPk(idCita, { transaction });
+    const cita = await db.Cita.findByPk(idCita);
     if (!cita) {
-      throw new NotFoundError("Cita no encontrada para eliminar.");
+        throw new NotFoundError("Cita no encontrada para eliminar.");
     }
+
+    // --- REGLA DE NEGOCIO: Solo se puede eliminar después de una semana ---
+    const ahora = moment();
+    const fechaCita = moment(cita.fechaHora);
+    if (ahora.diff(fechaCita, 'days') < 7) {
+        throw new ForbiddenError("Las citas solo se pueden eliminar una semana después de haberse realizado.");
+    }
+    // --- FIN DE LA REGLA ---
+
+    await db.Cita.destroy({ where: { idCita } });
 
     const ventasAsociadas = await db.VentaXServicio.count({
       where: { idCita },
@@ -438,13 +448,223 @@ const eliminarCitaFisica = async (idCita) => {
   }
 };
 
+/**
+ * Obtiene todas las citas de un cliente específico.
+ * @param {number} idCliente - El ID del cliente.
+ * @returns {Promise<Cita[]>} Una lista de citas del cliente.
+ */
+const obtenerCitasPorCliente = async (idCliente) => {
+  try {
+    return await db.Cita.findAll({
+      where: { idCliente },
+      include: [
+        { model: db.Cliente, as: "cliente" },
+        {
+          model: db.Usuario,
+          as: "empleado",
+          required: false,
+          include: [{ model: db.Empleado, as: "empleadoInfo" }],
+        },
+        { model: db.Servicio, as: "servicios", through: { attributes: [] } },
+        { model: db.Estado, as: "estadoDetalle" },
+      ],
+      order: [
+        ["fecha", "DESC"],
+        ["horaInicio", "DESC"],
+      ],
+    });
+  } catch (error) {
+    console.error("Error al obtener las citas del cliente:", error);
+    throw new CustomError(`Error al obtener las citas del cliente: ${error.message}`, 500);
+  }
+};
+
+/**
+ * Crea una nueva cita para un cliente específico, asignando el idCliente desde el controlador.
+ * @param {object} datosCita - Datos para la nueva cita.
+ * @param {number} idClienteAuth - El ID del cliente autenticado.
+ * @returns {Promise<Cita>} La instancia de la cita recién creada.
+ */
+const crearCitaParaCliente = async (datosCita, idClienteAuth) => {
+    // Forzamos el uso del idCliente del usuario autenticado
+    const datosCitaSeguros = { ...datosCita, idCliente: idClienteAuth };
+
+    // Reutilizamos la lógica de la función `crearCita` existente
+    return crearCita(datosCitaSeguros);
+};
+
+/**
+ * Obtiene una cita por su ID, asegurándose de que pertenezca al cliente especificado.
+ * @param {number} idCita - El ID de la cita.
+ * @param {number} idCliente - El ID del cliente que solicita.
+ * @returns {Promise<Cita>} La instancia de la cita.
+ */
+const obtenerCitaDeClientePorId = async (idCita, idCliente) => {
+  const cita = await obtenerCitaCompletaPorId(idCita);
+
+  if (!cita || cita.idCliente !== idCliente) {
+    // Se lanza NotFoundError para no revelar la existencia de la cita a usuarios no autorizados.
+    throw new NotFoundError("Cita no encontrada.");
+  }
+
+  return cita;
+};
+
+
+/**
+ * Lista citas por cliente (móvil).
+ */
+const listarPorCliente = async (idCliente) => {
+  return await obtenerCitasPorCliente(idCliente);
+};
+
+/**
+ * Crea una cita para cliente (móvil).
+ */
+const crearParaCliente = async (idCliente, datosCita) => {
+  return await crearCitaParaCliente(datosCita, idCliente);
+};
+
+/**
+ * Lista novedades agendables (móvil).
+ */
+const listarNovedadesAgendablesMovil = async () => {
+  try {
+    return await db.Novedad.findAll({
+      where: { estado: true },
+      include: [
+        {
+          model: db.Usuario,
+          as: "empleados",
+          attributes: ["idUsuario"],
+          include: [
+            {
+              model: db.Empleado,
+              as: "empleadoInfo",
+              attributes: ["nombre", "apellido"],
+            },
+          ],
+        },
+      ],
+      order: [["nombre", "ASC"]],
+    });
+  } catch (error) {
+    console.error("Error al obtener novedades agendables:", error);
+    throw new CustomError(`Error al obtener novedades agendables: ${error.message}`, 500);
+  }
+};
+
+/**
+ * Lista días disponibles (móvil).
+ */
+const listarDiasDisponiblesMovil = async (novedadId, mes, anio) => {
+  try {
+    // Esta función debería implementar la lógica para obtener días disponibles
+    // Por ahora retornamos un array vacío, pero debería conectarse con la lógica de novedades
+    return [];
+  } catch (error) {
+    console.error("Error al obtener días disponibles:", error);
+    throw new CustomError(`Error al obtener días disponibles: ${error.message}`, 500);
+  }
+};
+
+/**
+ * Lista horas disponibles (móvil).
+ */
+const listarHorasDisponiblesMovil = async (novedadId, fecha) => {
+  try {
+    // Esta función debería implementar la lógica para obtener horas disponibles
+    // Por ahora retornamos un array vacío, pero debería conectarse con la lógica de novedades
+    return [];
+  } catch (error) {
+    console.error("Error al obtener horas disponibles:", error);
+    throw new CustomError(`Error al obtener horas disponibles: ${error.message}`, 500);
+  }
+};
+
+/**
+ * Cancela una cita de cliente (móvil).
+ */
+const cancelarCitaDeClienteMovil = async (idCliente, idCita) => {
+  try {
+    const cita = await obtenerCitaDeClientePorId(idCita, idCliente);
+    // Buscar el estado "Cancelada"
+    const estadoCancelada = await db.Estado.findOne({
+      where: { nombreEstado: "Cancelada" }
+    });
+    if (!estadoCancelada) {
+      throw new BadRequestError("Estado 'Cancelada' no encontrado en el sistema.");
+    }
+    return await cambiarEstadoCita(idCita, estadoCancelada.idEstado);
+  } catch (error) {
+    if (error instanceof NotFoundError || error instanceof BadRequestError) throw error;
+    console.error("Error al cancelar cita de cliente:", error);
+    throw new CustomError(`Error al cancelar cita: ${error.message}`, 500);
+  }
+};
+
+/**
+ * ✅ NUEVA LÓGICA DE NEGOCIO PARA CANCELAR
+ * Cambia el estado de una cita a "Cancelada".
+ * @param {number} idCita - ID de la cita a cancelar.
+ * @returns {Promise<object>} La cita actualizada.
+ */
+const cancelarCita = async (idCita) => {
+    const transaction = await db.sequelize.transaction();
+    try {
+        const cita = await db.Cita.findByPk(idCita, { transaction });
+        if (!cita) throw new NotFoundError("Cita no encontrada.");
+
+        // --- REGLA DE NEGOCIO: No se puede cancelar un día antes ---
+        const ahora = moment();
+        const fechaCita = moment(cita.fechaHora);
+        if (fechaCita.diff(ahora, 'hours') < 24) {
+            throw new ForbiddenError("Las citas no se pueden cancelar con menos de 24 horas de antelación.");
+        }
+        // --- FIN DE LA REGLA ---
+
+        const estadoCancelado = await db.Estado.findOne({ where: { nombreEstado: 'Cancelado' }, transaction });
+        if (!estadoCancelado) throw new CustomError("El estado 'Cancelado' no está configurado.", 500);
+
+        await cita.update({ idEstado: estadoCancelado.idEstado }, { transaction });
+        
+        await transaction.commit();
+        
+        // Lógica de envío de correo
+        const citaCompleta = await obtenerCitaCompletaPorIdInterno(idCita);
+        if (citaCompleta && citaCompleta.cliente.correo) {
+             enviarCorreoCita({
+                correo: citaCompleta.cliente.correo,
+                nombreCliente: citaCompleta.cliente.nombre,
+                citaInfo: { /* ... datos para el correo de cancelación ... */ }
+             });
+        }
+        return citaCompleta;
+
+    } catch (error) {
+        await transaction.rollback();
+        throw error; // Re-lanza el error para que el controlador lo maneje
+    }
+};
+
 module.exports = {
   crearCita,
   obtenerTodasLasCitas,
+  obtenerCitasPorCliente,
   obtenerCitaPorId,
   actualizarCita,
   cambiarEstadoCita,
   eliminarCitaFisica,
+  crearCitaParaCliente,
+  obtenerCitaDeClientePorId,
+  // Funciones móviles
+  listarPorCliente,
+  crearParaCliente,
+  listarNovedadesAgendablesMovil,
+  listarDiasDisponiblesMovil,
+  listarHorasDisponiblesMovil,
+  cancelarCitaDeClienteMovil,
+  cancelarCita,
   // Funciones de consulta para el formulario que no cambian
   obtenerDiasDisponiblesPorNovedad: require("./novedades.service.js")
     .obtenerDiasDisponibles,

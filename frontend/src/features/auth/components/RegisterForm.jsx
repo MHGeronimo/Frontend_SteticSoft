@@ -14,6 +14,7 @@ function RegisterForm({ onSubmit, error, successMessage, isLoading }) {
     tipoDocumento: "",
     numeroDocumento: "",
     fechaNacimiento: "",
+    direccion: "",
   });
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isCheckboxChecked, setIsCheckboxChecked] = useState(false);
@@ -40,6 +41,7 @@ function RegisterForm({ onSubmit, error, successMessage, isLoading }) {
           case "tipoDocumento": fieldName = "Tipo de Documento"; break;
           case "numeroDocumento": fieldName = "Número de Documento"; break;
           case "fechaNacimiento": fieldName = "Fecha de Nacimiento"; break;
+          case "direccion": fieldName = "Dirección"; break;
           default: break;
         }
         setFormError(`Por favor, completa el campo: ${fieldName}`);
@@ -208,6 +210,21 @@ function RegisterForm({ onSubmit, error, successMessage, isLoading }) {
             required
             // Puedes añadir max y min date si es necesario
             // max={new Date().toISOString().split("T")[0]} // Ejemplo: no permitir fechas futuras
+          />
+        </div>
+
+        {/* Campo Dirección */}
+        <div className="auth-form-group">
+          <label htmlFor="direccion">Dirección <RequiredAsterisk /></label>
+          <input
+            type="text"
+            id="direccion"
+            name="direccion"
+            placeholder="Ej: Calle 5 # 4-3"
+            value={formData.direccion}
+            onChange={handleChange}
+            className="auth-form-input"
+            required
           />
         </div>
       </div>

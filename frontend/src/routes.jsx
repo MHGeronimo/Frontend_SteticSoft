@@ -10,7 +10,7 @@ import Navbar from "./shared/components/layout/Navbar";
 import PrivateRoute from "./shared/components/auth/PrivateRoute";
 
 // ---- Páginas Públicas ------
-import { LoginPage, RegisterPage, ForgotPasswordPage, ResetPasswordPage } from "./features/auth";
+import { LoginPage, RegisterPage, PasswordRecoveryPage } from "./features/auth";
 import { HomePage, PublicProductosPage, PublicServiciosPage, NovedadesPage } from './features/home';
 
 // ---- Páginas de Administrador ------
@@ -62,8 +62,7 @@ function AppRoutes() {
         {/* Autenticación */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        <Route path="/password-recovery" element={<PasswordRecoveryPage />} />
 
         {/* --- ESTRUCTURA UNIFICADA DE RUTAS DE ADMINISTRADOR --- */}
         <Route path="/admin" element={<AdminLayout />}>

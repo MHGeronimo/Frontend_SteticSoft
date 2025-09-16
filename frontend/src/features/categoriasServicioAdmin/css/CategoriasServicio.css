@@ -57,6 +57,7 @@
 /* --- Estilo unificado para input y select --- */
 .filtro-input {
   border: 1px solid var(--color-form-border);
+  cursor: text;
   border-radius: 6px;
   padding: 0.6rem 0.8rem;
   font-size: 1rem;
@@ -64,6 +65,10 @@
   transition: border-color 0.2s;
   height: 41px; /* Altura fija para alinear con el botón */
   box-sizing: border-box;
+}
+
+.filtro-input-estados{
+  cursor: pointer;
 }
 
 .filtro-input:focus {

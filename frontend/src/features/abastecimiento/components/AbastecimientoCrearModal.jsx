@@ -58,10 +58,8 @@ const AbastecimientoCrearModal = ({ isOpen, onClose, onSaveSuccess }) => {
 
     const empleadosParaSeleccion = Array.isArray(empleados) ? empleados.map(emp => ({
         ...emp,
-        displayName: `${emp.rol?.nombre || 'Empleado'} (${emp.correo})`
+        displayName: `${emp.nombre || ''} ${emp.apellido || ''} (${emp.correo || 'N/A'})`
     })) : [];
-
-console.log("Datos que se envían al modal:", empleadosParaSeleccion);
 
     const handleEmpleadoSelect = (empleado) => {
         setFormData(prev => ({ ...prev, empleado: empleado }));

@@ -41,7 +41,7 @@ const crearServicioValidators = [
       }
     }),
 
-  body("imagenUrl")
+  body("imagen")
     .optional({ nullable: true, checkFalsy: true })
     .isString().withMessage("La URL de la imagen debe ser texto.")
     .matches(regexImagen).withMessage("La imagen debe ser .jpg, .jpeg, .png o .webp."),
@@ -90,7 +90,7 @@ const actualizarServicioValidators = [
       }
     }),
 
-  body("imagenUrl")
+  body("imagen")
     .optional({ nullable: true, checkFalsy: true })
     .isString().withMessage("La URL de la imagen debe ser texto.")
     .matches(regexImagen).withMessage("La imagen debe ser .jpg, .jpeg, .png o .webp."),

@@ -19,8 +19,9 @@
 }
 
 .proveedores-content-wrapper {
+    padding-left: 30px;
     width: 100%;
-    max-width: 1200px; 
+    max-width: 1600px; 
     margin-left: auto;
     margin-right: auto;
     display: flex;
@@ -57,14 +58,13 @@
     flex-wrap: wrap; /* Permite que los elementos internos se envuelvan si no hay suficiente espacio */
 }
 
-.proveedores-search-bar { 
+.proveedores-search-bar {
     flex-grow: 1;
     display: flex;
 }
-.proveedores-search-bar input { 
-    padding: 10px 12px; 
-    width: 100%; 
-    min-width: 250px;
+
+.proveedores-search-bar input {
+    width: 800px;
     font-size: 1rem;
     border: 1px solid var(--color-form-border);
     border-radius: 5px;
@@ -72,6 +72,7 @@
     color: var(--color-text-dark);
     box-sizing: border-box;
 }
+
 .proveedores-search-bar input:focus {
     border-color: var(--color-primary);
     background-color: var(--color-form-focus-bg);
@@ -137,11 +138,12 @@
 
 /* === ESTILOS DE TABLA === */
 .tablaProveedores table { 
+    padding-left: 20px;
     width: 100%;
     border-collapse: collapse;
 }
 .tablaProveedores { 
-    width: 100%; 
+    width: 1460px; 
     margin-top: 20px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
     background-color: var(--color-table-row-odd);

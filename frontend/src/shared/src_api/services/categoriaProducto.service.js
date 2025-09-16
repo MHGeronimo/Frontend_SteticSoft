@@ -274,6 +274,28 @@ const eliminarCategoriaProductoFisica = async (idCategoria) => {
   }
 };
 
+/**
+ * Obtener todas las categorías de producto públicas (activas).
+ */
+const obtenerCategoriasPublicas = async () => {
+  try {
+    const categorias = await db.CategoriaProducto.findAll({
+      where: { estado: true },
+      order: [["nombre", "ASC"]],
+    });
+    return categorias;
+  } catch (error) {
+    console.error(
+      "Error al obtener las categorías públicas de productos en el servicio:",
+      error.message
+    );
+    throw new CustomError(
+      `Error al obtener categorías públicas de productos: ${error.message}`,
+      500
+    );
+  }
+};
+
 module.exports = {
   crearCategoriaProducto,
   obtenerTodasLasCategoriasProducto,
@@ -283,4 +305,5 @@ module.exports = {
   habilitarCategoriaProducto,
   eliminarCategoriaProductoFisica,
   cambiarEstadoCategoriaProducto,
+  obtenerCategoriasPublicas,
 };

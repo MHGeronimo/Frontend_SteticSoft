@@ -14,7 +14,7 @@ const PERMISO_MODULO_VENTAS = "MODULO_VENTAS_GESTIONAR";
 router.post(
   "/",
   authMiddleware,
-  checkPermission(PERMISO_MODULO_VENTAS),
+  checkPermission("MODULO_VENTAS_CLIENTE"),
   ventaValidators.crearVentaValidators,
   ventaController.crearVenta
 );
@@ -74,6 +74,19 @@ router.delete(
   checkPermission(PERMISO_MODULO_VENTAS),
   ventaValidators.idVentaValidator,
   ventaController.eliminarVentaFisica
+);
+
+router.get(
+  "/movil/mis-ventas",
+  authMiddleware,
+  ventaController.listarVentasClienteMovil
+);
+
+router.get(
+  "/movil/:idVenta",
+  authMiddleware,
+  ventaValidators.idVentaValidator,
+  ventaController.obtenerVentaPorIdClienteMovil
 );
 
 module.exports = router;

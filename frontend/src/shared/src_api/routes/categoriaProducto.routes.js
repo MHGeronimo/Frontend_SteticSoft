@@ -12,6 +12,8 @@ const {
 const PERMISO_MODULO_CATEGORIAS_PRODUCTOS =
   "MODULO_CATEGORIAS_PRODUCTOS_GESTIONAR";
 
+router.get("/public", categoriaProductoController.listarCategoriasPublicas);
+
 router.post(
   "/",
   authMiddleware,

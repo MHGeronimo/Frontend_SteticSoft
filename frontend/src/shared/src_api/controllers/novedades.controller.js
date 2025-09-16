@@ -177,17 +177,32 @@ const eliminarNovedadFisica = async (req, res, next) => {
   }
 };
 
-module.exports = {
-  crearNovedad,
-  listarNovedades,
-  obtenerNovedadPorId,
-  actualizarNovedad,
-  cambiarEstadoNovedad,
-  eliminarNovedadFisica,
-  listarNovedadesAgendables,
-  listarDiasDisponibles,
-  listarHorasDisponibles,
-  listarEmpleadosPorNovedad,
-  listarEmpleadosParaAsignar, // ✅ Se exporta la nueva función
+/**
+ * Lista todas las novedades activas para el público general.
+ */
+const listarNovedadesPublicas = async (req, res, next) => {
+    try {
+        const novedades = await novedadesService.obtenerNovedadesPublicas();
+        res.status(200).json({
+            success: true,
+            data: novedades,
+        });
+    } catch (error) {
+        next(error);
+    }
 };
 
+module.exports = {
+  crearNovedad,
+  listarNovedades,
+  obtenerNovedadPorId,
+  actualizarNovedad,
+  cambiarEstadoNovedad,
+  eliminarNovedadFisica,
+  listarNovedadesAgendables,
+  listarDiasDisponibles,
+  listarHorasDisponibles,
+  listarEmpleadosPorNovedad,
+  listarEmpleadosParaAsignar,
+  listarNovedadesPublicas, // <--- AÑADIR ESTA LÍNEA QUE FALTABA
+};

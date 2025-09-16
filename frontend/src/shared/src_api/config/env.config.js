@@ -5,12 +5,18 @@ const env = process.env.NODE_ENV || "development";
 const isProduction = env === "production";
 const isDevelopment = env === "development";
 
+// Orígenes permitidos para CORS
 const ALLOWED_ORIGINS = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(",").map((url) => url.trim())
   : isProduction
-  ? []
-  : ["http://localhost:5173"];
+    ? []
+    : ["http://localhost:5173"];
 
+/**
+ * Lógica para validar el origen en CORS.
+ * @param {string} origin
+ * @param {function} callback
+ */
 const getCorsOriginLogic = (origin, callback) => {
   if (!origin || ALLOWED_ORIGINS.includes(origin)) {
     callback(null, true);
@@ -19,14 +25,42 @@ const getCorsOriginLogic = (origin, callback) => {
   }
 };
 
+/**
+ * Valida que las variables obligatorias estén presentes.
+ * @param {string[]} keys
+ */
+function validateRequiredEnv(keys) {
+  keys.forEach((key) => {
+    if (!process.env[key]) {
+      console.warn(
+        `[env.config] Advertencia: La variable ${key} no está definida en el entorno.`
+      );
+    }
+  });
+}
+
+// Variables obligatorias (puedes agregar/quitar según tu proyecto)
+validateRequiredEnv([
+  "CLOUDINARY_CLOUD_NAME",
+  "CLOUDINARY_API_KEY",
+  "CLOUDINARY_API_SECRET",
+  "JWT_SECRET",
+  "SESSION_SECRET",
+  "DATABASE_URL",
+]);
+
 module.exports = {
   NODE_ENV: env,
   IS_PRODUCTION: isProduction,
   IS_DEVELOPMENT: isDevelopment,
 
-  PORT: process.env.PORT || 3000,
+  PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 3000,
   APP_NAME: process.env.APP_NAME || "SteticSoft API",
   FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:5173",
+
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
 
   DATABASE_URL: process.env.DATABASE_URL,
   DB_HOST: process.env.DB_HOST,

@@ -45,6 +45,7 @@ router.use("/citas", citaRoutes);
 router.use("/servicios", servicioRoutes);
 router.use("/abastecimientos", abastecimientoRoutes);
 router.use("/novedades", novedadesRoutes);
+router.use("/api/movil", require("./mobile.routes"));
 // ...
 
 router.get("/", (req, res) => {

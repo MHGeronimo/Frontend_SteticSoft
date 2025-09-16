@@ -236,6 +236,21 @@ const eliminarCategoriaServicioFisica = async (idCategoriaServicio) => {
   }
 };
 
+/**
+ * Obtiene categorías de servicio activas para uso público (móvil).
+ */
+const obtenerCategoriasPublicas = async () => {
+  try {
+    return await db.CategoriaServicio.findAll({
+      where: { estado: true },
+      order: [["nombre", "ASC"]],
+    });
+  } catch (error) {
+    console.error("Error al obtener categorías públicas de servicios:", error);
+    throw new CustomError(`Error al obtener categorías públicas de servicios: ${error.message}`, 500);
+  }
+};
+
 module.exports = {
   crearCategoriaServicio,
   obtenerTodasLasCategoriasServicio,
@@ -245,4 +260,5 @@ module.exports = {
   habilitarCategoriaServicio,
   eliminarCategoriaServicioFisica,
   cambiarEstadoCategoriaServicio,
+  obtenerCategoriasPublicas,
 };

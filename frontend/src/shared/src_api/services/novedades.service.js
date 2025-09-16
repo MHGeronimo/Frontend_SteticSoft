@@ -64,24 +64,25 @@ const crearNovedad = async (datosNovedad, empleadosIds) => {
 
 const obtenerTodasLasNovedades = async (opcionesDeFiltro = {}) => {
   const { estado, empleadoId, busqueda } = opcionesDeFiltro;
-  let whereClause = {};
+  const whereClause = {};
   const includeOptions = {
     model: db.Usuario,
-    as: "empleados",
-    attributes: ["idUsuario", "correo"],
-    through: { attributes: [] },
-    required: false,
-    include: [
-      {
-        model: db.Empleado,
-        as: "empleadoInfo",
-        attributes: ["nombre", "apellido"],
-      },
+    as: 'empleados', // Este alias viene de Novedades.model.js
+    attributes: [
+        ['id_usuario', 'id'], // Renombramos 'id_usuario' a 'id' para el frontend
+        'correo'
     ],
+    through: { attributes: [] }, // No incluir la tabla intermedia en el resultado
+    include: [{ // Anidamos la inclusión para obtener el nombre y apellido del perfil del empleado
+      model: db.Empleado,
+      as: 'empleadoInfo', // Este alias viene de Usuario.model.js
+      attributes: ['nombre', 'apellido'],
+    }],
+    required: false
   };
 
-  if (estado !== undefined && estado !== null && estado !== '') {
-    whereClause.estado = String(estado) === "true";
+  if (estado === 'true' || estado === 'false') {
+    whereClause.estado = estado === 'true';
   }
 
   if (empleadoId) {
@@ -90,46 +91,43 @@ const obtenerTodasLasNovedades = async (opcionesDeFiltro = {}) => {
   }
 
   if (busqueda) {
-    const searchTerm = `%${String(busqueda)}%`;
-    const busquedaConditions = {
-      [Op.or]: [
-        db.sequelize.where(db.sequelize.cast(db.sequelize.col('hora_inicio'), 'text'), { [Op.iLike]: searchTerm }),
-        db.sequelize.where(db.sequelize.cast(db.sequelize.col('hora_fin'), 'text'), { [Op.iLike]: searchTerm }),
-        db.sequelize.where(db.sequelize.cast(db.sequelize.col('dias'), 'text'), { [Op.iLike]: searchTerm }),
-        { "$empleados.empleadoInfo.nombre$": { [Op.iLike]: searchTerm } },
-        { "$empleados.empleadoInfo.apellido$": { [Op.iLike]: searchTerm } },
-      ],
-    };
-    whereClause = { ...whereClause, ...busquedaConditions };
+    const searchTerm = `%${busqueda}%`;
+    whereClause[Op.or] = [
+      { fechaInicio: { [Op.like]: searchTerm } },
+      { fechaFin: { [Op.like]: searchTerm } },
+      { horaInicio: { [Op.like]: searchTerm } },
+      { horaFin: { [Op.like]: searchTerm } },
+      { '$empleados.correo$': { [Op.like]: searchTerm } },
+      { '$empleados.empleadoInfo.nombre$': { [Op.like]: searchTerm } },
+      { '$empleados.empleadoInfo.apellido$': { [Op.like]: searchTerm } },
+    ];
   }
 
   try {
     const novedades = await db.Novedad.findAll({
       where: whereClause,
-      include: [includeOptions],
+      include: [includeOptions], // Aplicamos la nueva configuración de inclusión
       order: [["fechaInicio", "DESC"]],
-      logging: console.log,
     });
 
-    return novedades.map((novedad) => {
+    // Mapeamos el resultado para darle al frontend una estructura limpia y fácil de usar
+    return novedades.map(novedad => {
       const plainNovedad = novedad.get({ plain: true });
-      plainNovedad.empleados = plainNovedad.empleados.map((empleado) => ({
-        ...empleado,
-        nombre: empleado.empleadoInfo?.nombre,
-        apellido: empleado.empleadoInfo?.apellido,
-        empleadoInfo: undefined,
-      }));
+      if (plainNovedad.empleados) {
+          plainNovedad.empleados = plainNovedad.empleados.map(emp => ({
+            id: emp.id,
+            // Unimos nombre y apellido para el selector del frontend
+            nombre: `${emp.empleadoInfo.nombre} ${emp.empleadoInfo.apellido}`.trim()
+          }));
+      }
       return plainNovedad;
     });
+
   } catch (error) {
     console.error("Error al obtener todas las novedades:", error);
-    if (error.name === 'SequelizeDatabaseError') {
-      throw new BadRequestError(`Error en la consulta de búsqueda: ${error.message}`);
-    }
     throw new CustomError(`Error al obtener novedades: ${error.message}`, 500);
   }
 };
-
 const obtenerNovedadesActivas = async () => {
     try {
         // Se usa moment().tz para asegurar que la fecha actual se evalúe en la zona horaria correcta (ej. America/Bogota).
@@ -231,12 +229,78 @@ const eliminarNovedadFisica = async (idNovedad) => {
 };
 
 const obtenerDiasDisponibles = async (idNovedad, anio, mes) => {
-    // ... (Tu lógica existente es correcta)
+  // 1. Busca la novedad por su ID para obtener sus reglas (fechas y días)
+  const novedad = await db.Novedad.findByPk(idNovedad);
+  if (!novedad) {
+    throw new NotFoundError("Novedad no encontrada.");
+  }
+
+  const inicioDelMes = moment.tz({ year: anio, month: mes - 1 }, "America/Bogota").startOf('month');
+  const finDelMes = moment.tz({ year: anio, month: mes - 1 }, "America/Bogota").endOf('month');
+
+  // ✅ LÍNEAS AÑADIDAS: Convertimos las fechas de la novedad a objetos moment en la misma zona horaria.
+  const fechaInicioNovedad = moment.tz(novedad.fechaInicio, "America/Bogota").startOf('day');
+  const fechaFinNovedad = moment.tz(novedad.fechaFin, "America/Bogota").endOf('day');
+
+  const diasValidos = [];
+  
+  moment.locale('es'); // Establecer el idioma a español
+
+  let diaActual = inicioDelMes.clone();
+  while (diaActual.isSameOrBefore(finDelMes)) {
+    
+    // ✅ LÍNEAS MODIFICADAS: Comparamos usando los nuevos objetos moment.
+    const esDespuesDeInicioNovedad = diaActual.isSameOrAfter(fechaInicioNovedad);
+    const esAntesDeFinNovedad = diaActual.isSameOrBefore(fechaFinNovedad);
+    
+    const diaDeLaSemana = diaActual.format('dddd');
+    const diaDeLaSemanaCapitalizado = diaDeLaSemana.charAt(0).toUpperCase() + diaDeLaSemana.slice(1);
+    const esDiaPermitido = novedad.dias.includes(diaDeLaSemanaCapitalizado);
+
+    if (esDespuesDeInicioNovedad && esAntesDeFinNovedad && esDiaPermitido) {
+      diasValidos.push(diaActual.format('YYYY-MM-DD'));
+    }
+
+    diaActual.add(1, 'days');
+  }
+
+  moment.locale('en'); // Revertir al idioma original para no afectar otras partes
+
+  return diasValidos;
 };
 
+
 const obtenerHorasDisponibles = async (idNovedad, fecha) => {
-    // ... (Tu lógica existente es correcta)
+  // 1. Busca la novedad para obtener sus reglas de horario
+  const novedad = await db.Novedad.findByPk(idNovedad);
+  if (!novedad) {
+    throw new NotFoundError("Novedad no encontrada.");
+  }
+  const citasDelDia = await db.Cita.findAll({
+    where: {
+      fecha: fecha,
+    },
+    attributes: ['horaInicio'], // Solo necesitamos la hora de inicio de cada cita
+  });
+  // Creamos un Set para una búsqueda más rápida de las horas ocupadas
+  const horasOcupadas = new Set(citasDelDia.map(cita => cita.horaInicio));
+  const horariosPosibles = [];
+  const formatoHora = 'HH:mm:ss';
+  const intervaloMinutos = 60;
+
+  let horaActual = moment(novedad.horaInicio, formatoHora);
+  const horaFin = moment(novedad.horaFin, formatoHora);
+
+  while (horaActual.isBefore(horaFin)) {
+    horariosPosibles.push(horaActual.format(formatoHora));
+    horaActual.add(intervaloMinutos, 'minutes');
+  }
+
+  const horasDisponibles = horariosPosibles.filter(hora => !horasOcupadas.has(hora));
+  
+  return horasDisponibles;
 };
+
 
 const obtenerEmpleadosPorNovedad = async (idNovedad) => {
   const novedad = await db.Novedad.findByPk(idNovedad, {
@@ -319,6 +383,20 @@ const obtenerEmpleadosParaAsignar = async () => {
   }
 };
 
+const obtenerNovedadesPublicas = async () => {
+    try {
+        return await db.Novedad.findAll({
+            where: {
+                estado: true,
+            },
+            order: [["fechaInicio", "DESC"]],
+        });
+    } catch (error) {
+        console.error("Error al obtener novedades públicas:", error);
+        throw new CustomError(`Error al obtener novedades públicas: ${error.message}`, 500);
+    }
+};
+
 module.exports = {
   crearNovedad,
   obtenerTodasLasNovedades,
@@ -331,5 +409,6 @@ module.exports = {
   obtenerHorasDisponibles,
   obtenerEmpleadosPorNovedad,
   obtenerEmpleadosParaAsignar,
+  obtenerNovedadesPublicas,
 };
 
